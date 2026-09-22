@@ -130,6 +130,16 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: '3.1.0',
+    headline: 'Meet Drool: stories, local enhancement, voices and your choice of connected providers.',
+    lines: [
+      { title: 'Explore Hugging Face with exact file variants.', detail: 'Search chat, image, video, voice and LoRA repositories. Inspect exact files, sizes, compatibility and gated access with your own Hugging Face token.' },
+      { title: 'Enhance and erase on your own PC.', detail: 'Enhance uses installed ComfyUI upscalers with a clearly labeled bicubic fallback. Erase uses a painted mask and a compatible SDXL or SD 1.5 checkpoint.' },
+      { title: 'Turn a story into reviewed image panels.', detail: 'Stories saves characters, discussions, editable visual prompts and separate captions locally. Review each panel before rendering through your local image backend.' },
+      { title: 'Talk locally, or connect your own provider.', detail: 'Voice Studio adds local Whisper and Piper conversation and an audio.cpp connector. Connections adds optional Codex account, OpenRouter and Higgsfield access; these services run online and have their own account limits.' },
+    ],
+  },
   // Auflage 2 (review-gesamt.md): package.json, src-tauri/Cargo.toml (plus
   // Cargo.lock) und src-tauri/tauri.conf.json stehen jetzt alle auf 3.0.1, in
   // einem Zug mit diesem Eintrag, damit kein Release still bleibt (Gedaechtnis

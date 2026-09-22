@@ -89,7 +89,7 @@ export function Composer({ onOpenAdvanced, onOpenWorkflows }: Props) {
 
   // Single-purpose endpoints (cutout/upscale/eraser): no prompt, no
   // generation knobs, no model choice — just the input (+ mask/resolution).
-  const isUtility = meta.id === 'removebg' || meta.id === 'upscale' || meta.id === 'eraser'
+  const isUtility = meta.id === 'removebg' || meta.id === 'upscale' || (meta.id === 'eraser' && backend === 'cloud')
   // 2.5.8 categories with their own composer surfaces + input contracts.
   const special =
     intent === 'character' || intent === 'lipsync' || intent === 'music' ||
@@ -391,6 +391,8 @@ export function Composer({ onOpenAdvanced, onOpenWorkflows }: Props) {
             {studioPick && studioPrice?.error && (
               <span className="t-control text-red-300">{studioPrice.error}</span>
             )}
+            {meta.id === 'upscale' && backend === 'local' && <span className="text-xs text-gray-400 max-w-64">Uses an installed AI upscaler; otherwise a bicubic resize. Your image stays on this PC.</span>}
+            {meta.id === 'eraser' && backend === 'local' && <span className="text-xs text-gray-400">Paint a mask and choose SDXL or SD 1.5.</span>}
             {meta.id === 'upscale' && (
               <Tooltip content="Target resolution for the upscale pass.">
                 <div>

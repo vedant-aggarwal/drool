@@ -14,7 +14,7 @@
  * ECHTEN Leerzustand zeigt.
  *
  * Dieser Test haelt fest: eine aktive, leere Unterhaltung zeigt den
- * Leerzustand-Block ("Ask LU anything") IMMER, unabhaengig vom
+ * Leerzustand-Block ("Ask Drool anything") IMMER, unabhaengig vom
  * Seitenleisten-Zustand, nicht nur wenn `activeConversationId === null`
  * ist. Die Liste der letzten Chats bleibt darin weiterhin nur bei
  * zugeklappter Seitenleiste (D-S06, siehe home-recent-chats.test.ts).
@@ -71,7 +71,7 @@ describe('F1: eine aktive, leere Unterhaltung zeigt nie einen komplett leeren Ha
     useUIStore.setState({ sidebarOpen: true })
     render(createElement(ChatView))
     expect(screen.getByTestId('chat-landing')).toBeTruthy()
-    expect(screen.getByText('Ask LU anything')).toBeTruthy()
+    expect(screen.getByText('Ask Drool anything')).toBeTruthy()
   })
 
   it('aufgeklappte Seitenleiste: keine zweite Chat-Liste im Hauptbereich (Doppelung mit der Seitenleiste)', () => {
@@ -88,7 +88,7 @@ describe('F1: eine aktive, leere Unterhaltung zeigt nie einen komplett leeren Ha
     useUIStore.setState({ sidebarOpen: false })
     render(createElement(ChatView))
     expect(screen.getByTestId('chat-landing')).toBeTruthy()
-    expect(screen.getByText('Ask LU anything')).toBeTruthy()
+    expect(screen.getByText('Ask Drool anything')).toBeTruthy()
     expect(screen.getByTestId('home-recent-chats').textContent).toContain('Yesterdays thread')
   })
 
@@ -124,7 +124,7 @@ describe('F1: eine aktive, leere Unterhaltung zeigt nie einen komplett leeren Ha
     })
     render(createElement(ChatView))
     expect(screen.getByTestId('chat-landing')).toBeTruthy()
-    expect(screen.getByText('Ask LU anything')).toBeTruthy()
+    expect(screen.getByText('Ask Drool anything')).toBeTruthy()
   })
 
   it('A3: ein dispatchter, noch leerer Remote-Chat zeigt denselben Leerzustand-Block, nicht eine leere Flaeche', () => {
@@ -135,7 +135,7 @@ describe('F1: eine aktive, leere Unterhaltung zeigt nie einen komplett leeren Ha
     })
     render(createElement(ChatView))
     expect(screen.getByTestId('chat-landing')).toBeTruthy()
-    expect(screen.getByText('Ask LU anything')).toBeTruthy()
+    expect(screen.getByText('Ask Drool anything')).toBeTruthy()
   })
 
   it('A3-WAECHTER (keine Negativkontrolle fuer diesen Fix, siehe review-teil15.md Auflage 3): ein Remote-Chat mit der ersten Nachricht weicht dem Transkript, wie bei lu; waere auch ohne den A3-Fix gruen, weil ein Remote-Chat vor A3 nie einen Landing-Block zeigte', () => {

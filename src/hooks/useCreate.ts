@@ -1,3 +1,4 @@
+import { enhanceLocally } from '../api/local-enhance'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { v4 as uuid } from 'uuid'
 import {
@@ -513,12 +514,13 @@ export function useCreate() {
       return
     }
     const {
-      mode, prompt, negativePrompt, imageModel, videoModel,
+      mode, prompt: userPrompt, negativePrompt, imageModel, videoModel,
       sampler, scheduler, steps, cfgScale, width, height, seed, batchSize, frames, fps, denoise,
       hiresFixEnabled, hiresScale, hiresDenoise, hiresSteps, hiresUpscaleMethod, i2iImage, i2vImage,
       source, mask, growMaskBy, removebg, selectedLoras, selectedVae, clipSkip,
       setIsGenerating, setProgress, setCurrentPromptId, setError, addToGallery, addToPromptHistory,
     } = state
+    const prompt = state.utilityOp === 'eraser' ? 'clean natural background, seamless surrounding texture, no object' : userPrompt
 
     // The dice are thrown here, once, and the number travels with the run.
     // Every builder used to roll its own -1 internally and keep the result to
@@ -756,6 +758,10 @@ export function useCreate() {
     }
     // Always re-classify from model name to avoid stale type
     const imageModelType = classifyModel(activeModel)
+    if (state.utilityOp === 'eraser' && (!maskFilename || !['sdxl', 'sd15'].includes(imageModelType))) {
+      setError('Local Erase needs a painted mask and an SDXL or SD 1.5 checkpoint. Choose a compatible image model first.')
+      return
+    }
 
     // Background removal is prompt-free and model-independent (RMBG node);
     // lipsync/motion drive off their media inputs (the builder supplies a
@@ -973,6 +979,7 @@ export function useCreate() {
       }
       console.log('[useCreate] Custom workflow check:', { activeModel, imageModelType, found: customWf?.name ?? 'NONE (auto)' })
 
+      if (state.utilityOp === 'eraser') customWf = null
       if (customWf) {
         builderUsed = 'custom'
         setProgress(5, `Using workflow: ${customWf.name}...`)
@@ -1515,7 +1522,13 @@ export function useCreate() {
     if (generateInFlight.current) return
     generateInFlight.current = true
     try {
-      await generateInner()
+      if (useCreateStore.getState().utilityOp === 'upscale') {
+        const controller = new AbortController()
+        abortRef.current = controller
+        try { await enhanceLocally(controller.signal) } finally { abortRef.current = null }
+      } else {
+        await generateInner()
+      }
     } finally {
       generateInFlight.current = false
     }

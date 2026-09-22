@@ -118,7 +118,11 @@ pub async fn fetch_external(url: String, authToken: Option<String>) -> Result<St
         .as_deref()
         .map(str::trim)
         .filter(|t| !t.is_empty());
-    let resp = ssrf_safe_fetch(&url, "fetch_external", Duration::from_secs(60), 10, bearer).await?;
+    let hub_token = if crate::commands::download::is_huggingface_host(&url) {
+        crate::commands::mlx::hf_token()
+    } else { None };
+    let resp = ssrf_safe_fetch(&url, "fetch_external", Duration::from_secs(60), 10,
+        ExternalFetchOptions { civitai_token: bearer, hf_token: hub_token.as_deref(), ..Default::default() }).await?;
 
     if !resp.status().is_success() {
         return Err(format!("HTTP {}: {}", resp.status().as_u16(), redact_url(&url)));
@@ -131,7 +135,11 @@ pub async fn fetch_external(url: String, authToken: Option<String>) -> Result<St
 /// Used for downloading ZIP files, images, model files.
 #[tauri::command]
 pub async fn fetch_external_bytes(url: String) -> Result<Vec<u8>, String> {
-    let resp = ssrf_safe_fetch(&url, "fetch_external_bytes", Duration::from_secs(300), 10, None).await?;
+    let hub_token = if crate::commands::download::is_huggingface_host(&url) {
+        crate::commands::mlx::hf_token()
+    } else { None };
+    let resp = ssrf_safe_fetch(&url, "fetch_external_bytes", Duration::from_secs(300), 10,
+        ExternalFetchOptions { hf_token: hub_token.as_deref(), ..Default::default() }).await?;
 
     if !resp.status().is_success() {
         return Err(format!("HTTP {}: {}", resp.status().as_u16(), redact_url(&url)));
@@ -322,14 +330,20 @@ pub(crate) fn ssrf_safe_redirect_policy(max: usize) -> reqwest::redirect::Policy
 /// answers a public IP to the check and 127.0.0.1 to the connect (DNS rebinding)
 /// walks through untouched. `resolve_to_addrs` overrides only the address — the
 /// port always comes from the URL.
-fn pinned_client(host: &str, addrs: &[SocketAddr], timeout: Duration) -> Result<reqwest::Client, String> {
+fn pinned_client(host: &str, addrs: &[SocketAddr], timeout: Duration, streaming: bool) -> Result<reqwest::Client, String> {
     let mut builder = reqwest::Client::builder()
         .user_agent("LocallyUncensored/2.0")
-        .timeout(timeout)
         // Redirects are followed by hand in `ssrf_safe_fetch` so every hop gets
         // its own check AND its own pin; letting reqwest follow them would
         // re-resolve the next host behind our back.
         .redirect(reqwest::redirect::Policy::none());
+    builder = if streaming {
+        // Model files can take hours on a slow connection. Bound stalls, not
+        // total transfer time, and retain those limits on every redirect hop.
+        builder.connect_timeout(Duration::from_secs(30)).read_timeout(Duration::from_secs(120))
+    } else {
+        builder.timeout(timeout)
+    };
     if parse_ip_host(host).is_none() {
         builder = builder.resolve_to_addrs(host, addrs);
     }
@@ -343,15 +357,42 @@ fn pinned_client(host: &str, addrs: &[SocketAddr], timeout: Duration) -> Result<
 /// way, so a public URL answering `302 Location: http://169.254.169.254/…` (or
 /// `http://127.0.0.1:11434/…`) reached the blocked host through the front door.
 ///
-/// `bearer` is the user's CivitAI API key. It is attached per hop and ONLY while
-/// that hop is a CivitAI host, so a redirect off CivitAI drops the credential
-/// instead of handing it to whoever the catalogue pointed at.
-async fn ssrf_safe_fetch(
+/// Credentials are attached independently on every hop. In particular the HF
+/// token never reaches its CDN, an alias, a subdomain, or an HTTP downgrade.
+#[derive(Default)]
+pub(crate) struct ExternalFetchOptions<'a> {
+    pub civitai_token: Option<&'a str>,
+    pub hf_token: Option<&'a str>,
+    pub range_start: Option<u64>,
+    pub range_end: Option<u64>,
+    pub head: bool,
+    pub streaming: bool,
+}
+
+fn external_request(
+    client: &reqwest::Client,
+    current: &str,
+    options: &ExternalFetchOptions<'_>,
+) -> reqwest::RequestBuilder {
+    let mut request = if options.head { client.head(current) } else { client.get(current) };
+    if let Some(token) = crate::commands::download::outgoing_token(
+        current, options.civitai_token, options.hf_token,
+    ) {
+        request = request.bearer_auth(token);
+    }
+    if let Some(offset) = options.range_start {
+        let end = options.range_end.map(|value| value.to_string()).unwrap_or_default();
+        request = request.header(reqwest::header::RANGE, format!("bytes={offset}-{end}"));
+    }
+    request
+}
+
+pub(crate) async fn ssrf_safe_fetch(
     url: &str,
     label: &str,
     timeout: Duration,
     max_hops: usize,
-    bearer: Option<&str>,
+    options: ExternalFetchOptions<'_>,
 ) -> Result<reqwest::Response, String> {
     let mut current = url.to_string();
     for _ in 0..=max_hops {
@@ -362,19 +403,12 @@ async fn ssrf_safe_fetch(
             .map_err(|e| format!("{}: resolver task failed: {}", label, e))??;
         let parsed = url::Url::parse(&current).map_err(|e| format!("Invalid URL: {}", e))?;
         let host = parsed.host_str().unwrap_or("").to_string();
-        let client = pinned_client(&host, &addrs, timeout)?;
-        let mut request = client.get(current.clone());
-        // Jeder Sprung wird neu geprueft, der Bearer folgt nie einer Umleitung
-        // von CivitAI weg.
-        if let Some(token) =
-            bearer.filter(|_| crate::commands::download::is_civitai_host(&current))
-        {
-            request = request.bearer_auth(token);
-        }
+        let client = pinned_client(&host, &addrs, timeout, options.streaming)?;
+        let request = external_request(&client, &current, &options);
         let resp = request
             .send()
             .await
-            .map_err(|e| format!("{}: {}", label, os_error::english(&e)))?;
+            .map_err(|e| format!("{}: {}", label, os_error::english(&e.without_url())))?;
         // Only the statuses reqwest itself would have followed. 300 and 304 are
         // redirection-class but carry no target, and handing those back to the
         // caller is what happened before.
@@ -1453,6 +1487,55 @@ pub async fn ollama_search(query: String) -> Result<serde_json::Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hf_credentials_are_reattached_only_to_the_exact_https_hub_origin() {
+        let client = reqwest::Client::new();
+        let options = ExternalFetchOptions {
+            hf_token: Some("hf_test_only"), range_start: Some(123), streaming: true,
+            ..Default::default()
+        };
+        let first = external_request(&client, "https://huggingface.co/owner/repo/resolve/main/m.gguf", &options).build().unwrap();
+        assert_eq!(first.headers().get(reqwest::header::AUTHORIZATION).unwrap(), "Bearer hf_test_only");
+        assert_eq!(first.headers().get(reqwest::header::RANGE).unwrap(), "bytes=123-");
+        // These are subsequent hops built by the same production redirect loop.
+        // Rebuilding the request makes same-host HTTPS -> HTTP safe too.
+        for hop in [
+            "https://cdn-lfs.huggingface.co/model", "https://cas-bridge.xethub.hf.co/model",
+            "https://hf.co/model", "https://huggingface.co.evil.test/model",
+            "http://huggingface.co/model", "http://huggingface.co:443/model",
+            "https://huggingface.co:8443/model",
+            "https://civitai.com/model", "https://example.com/model",
+        ] {
+            let next = external_request(&client, hop, &options).build().unwrap();
+            assert!(!next.headers().contains_key(reqwest::header::AUTHORIZATION), "credential reached {hop}");
+            assert_eq!(next.headers().get(reqwest::header::RANGE).unwrap(), "bytes=123-");
+        }
+        // reqwest may derive Basic auth from userinfo, but must never attach
+        // the stored Hub credential to that URL.
+        let userinfo = external_request(&client, "https://user@huggingface.co/model", &options).build().unwrap();
+        assert_ne!(userinfo.headers().get(reqwest::header::AUTHORIZATION).and_then(|value| value.to_str().ok()), Some("Bearer hf_test_only"));
+    }
+
+    #[test]
+    fn proxy_keeps_hub_and_civitai_credentials_separate() {
+        let client = reqwest::Client::new();
+        let options = ExternalFetchOptions {
+            hf_token: Some("hf_test_only"), civitai_token: Some("civitai_test_only"),
+            ..Default::default()
+        };
+        for (target, expected) in [
+            ("https://huggingface.co/api/models", Some("Bearer hf_test_only")),
+            ("https://civitai.com/api/v1/models", Some("Bearer civitai_test_only")),
+            ("https://civitai.red/api/v1/models", Some("Bearer civitai_test_only")),
+            ("https://example.com/models", None),
+        ] {
+            let request = external_request(&client, target, &options).build().unwrap();
+            assert_eq!(request.headers().get(reqwest::header::AUTHORIZATION).map(|value| value.to_str().unwrap()), expected);
+            assert!(!request.headers().contains_key(reqwest::header::RANGE));
+            assert!(request.url().query().is_none());
+        }
+    }
 
     fn built_headers(
         body: Option<String>,

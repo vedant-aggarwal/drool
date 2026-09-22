@@ -1,7 +1,7 @@
 //! Local neural Text-to-Speech via Piper (rhasspy/piper, `piper-tts` on PyPI).
 //!
 //! 100% local — no cloud. We shell out to the same Python LU installs
-//! faster-whisper into (ComfyUI venv → system Python) running the Piper CLI
+//! faster-whisper into (Drool voice runtime, then the legacy Python resolver) running the Piper CLI
 //! one-shot per utterance: `python -m piper -m voice.onnx -c voice.onnx.json
 //! -f out.wav` with the text on stdin. One-shot (vs a persistent server) costs
 //! ~1-2 s of ONNX model load per "speak", which is acceptable for chat TTS and
@@ -76,7 +76,7 @@ pub fn tts_status(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<serde_json::Value, String> {
-    let python = crate::commands::install::resolve_lu_python(state.inner());
+    let python = crate::commands::install::resolve_voice_python(state.inner());
 
     let mut piper_importable = false;
     if !python.is_empty() && crate::python::is_real_python(&python) {
@@ -159,7 +159,7 @@ pub async fn download_voice(
     // owned values to the blocking pool: the download itself is tens of MB over
     // the network and used to run on the Tauri MAIN thread, so the window was
     // frozen for the whole transfer.
-    let python = crate::commands::install::resolve_lu_python(state.inner());
+    let python = crate::commands::install::resolve_voice_python(state.inner());
     if python.is_empty() || !crate::python::is_real_python(&python) {
         return Err("no_python: install Python first.".to_string());
     }
@@ -246,7 +246,7 @@ fn synthesize_blocking(
         _ => PIPER_VOICE.to_string(),
     };
 
-    let python = crate::commands::install::resolve_lu_python(state.inner());
+    let python = crate::commands::install::resolve_voice_python(state.inner());
     if python.is_empty() || !crate::python::is_real_python(&python) {
         return Err("no_python: install Python first.".to_string());
     }

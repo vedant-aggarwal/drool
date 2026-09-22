@@ -284,7 +284,7 @@ export function Onboarding() {
                 Der Zusatz „by LU Labs" bleibt eine Stufe kleiner, damit die
                 Groesse dem Namen gehoert und nicht der ganzen Zeile. */}
             <h1 className="text-[1.5rem] leading-[1.21] font-semibold tracking-tight">
-              LU <span className="text-[12px] font-normal opacity-60 align-middle">by LU Labs</span>
+              Drool <span className="text-[12px] font-normal opacity-60 align-middle">local creative studio</span>
             </h1>
             <p className={`text-[12px] leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Private, local AI chat that works right away. No extra software to install. No servers, no tracking, everything stays on your machine.

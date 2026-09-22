@@ -27,6 +27,7 @@ import { log } from './logger'
  *  src/stores by store-backup-covers-every-store.test.ts — a new persisted
  *  store fails that test rather than quietly not surviving an update. */
 export const STORE_KEYS = [
+  'drool-storyboards-v1', 'drool-voice-studio',
   'chat-conversations', 'chat-settings', 'chat-models', 'lu-providers',
   'create-store', 'locally-uncensored-codex',
   'locally-uncensored-permissions', 'locally-uncensored-mcp-servers',

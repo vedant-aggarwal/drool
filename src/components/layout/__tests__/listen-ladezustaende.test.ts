@@ -41,6 +41,7 @@ const codeOnly = (src: string) =>
 
 const SKELETONS = codeOnly(read('components', 'layout', 'ViewSkeletons.tsx'))
 const DISCOVER = codeOnly(read('components', 'models', 'DiscoverModels.tsx'))
+const HUGGINGFACE = codeOnly(read('components', 'models', 'HuggingFaceLibrary.tsx'))
 // Die CivitAI-Karte ist seit dem LoRA-Reiter eine eigene Komponente: dieselbe
 // Karte wird zweimal benutzt (Checkpoints hier, LoRAs unter Models > LoRAs),
 // und ihr Ladezustand ist deshalb auch nur noch einmal da.
@@ -58,8 +59,13 @@ function skeleton(name: string): string {
 }
 
 describe('an allen vier Stellen steht ein Skelett', () => {
-  it('1/4 — das Modell-Raster in Discover', () => {
-    expect(DISCOVER).toMatch(/\{loading \? \(\s*<ModelGridSkeleton \/>/)
+  it('1/4 — die asynchrone HF-Liste in Discover', () => {
+    // Curated rows are synchronous now. The asynchronous search moved to its
+    // own panel, whose skeleton matches repository rows rather than model tiles.
+    expect(DISCOVER).toContain('<HuggingFaceLibrary')
+    expect(HUGGINGFACE).toContain('{loading && results.length === 0 && <HuggingFaceResultsSkeleton />}')
+    expect(HUGGINGFACE).toContain('aria-label="Loading Hugging Face repositories"')
+    expect(HUGGINGFACE).toContain('aria-busy="true"')
     expect(DISCOVER).not.toContain('Loading models...')
   })
 

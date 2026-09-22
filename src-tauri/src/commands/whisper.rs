@@ -279,11 +279,11 @@ fn whisper_status_blocking(state: &AppState) -> Result<serde_json::Value, String
 }
 
 /// Is `faster_whisper` importable in the interpreter install_whisper targets
-/// (resolve_lu_python: ComfyUI venv if present, else system Python)? Cheap
+/// (resolve_voice_python: isolated Drool runtime, then legacy resolver)? Cheap
 /// best-effort probe so the badge reflects a prior install across relaunches
 /// without the server running. Any spawn/timeout failure → "not installed".
 fn whisper_package_installed(state: &AppState) -> bool {
-    let python = crate::commands::install::resolve_lu_python(state);
+    let python = crate::commands::install::resolve_voice_python(state);
     if python.is_empty() {
         return false;
     }
@@ -466,7 +466,7 @@ fn ensure_whisper_running(app: &AppHandle, state: &State<'_, AppState>) -> Resul
     // present, else system Python). Using state.python_bin here meant a
     // venv install was invisible at runtime → STT silently dead after
     // relaunch on boxes with a ComfyUI venv (#78).
-    let python_bin = crate::commands::install::resolve_lu_python(state.inner());
+    let python_bin = crate::commands::install::resolve_voice_python(state.inner());
     if python_bin.is_empty() {
         return Err("Whisper unavailable: no Python runtime detected. Install Python in the setup step, then retry.".to_string());
     }

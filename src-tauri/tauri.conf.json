@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-cli/schema.json",
-  "productName": "LU",
-  "version": "3.0.1",
+  "productName": "Drool",
+  "version": "3.1.0",
   "identifier": "com.purpledoubled.locally-uncensored",
   "build": {
     "beforeBuildCommand": "npm run build",
@@ -13,7 +13,7 @@
     "withGlobalTauri": false,
     "windows": [
       {
-        "title": "LU",
+        "title": "Drool",
         "width": 1280,
         "height": 800,
         "resizable": true,
@@ -31,20 +31,20 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/purpledoubled/locally-uncensored/releases/latest/download/latest.json"
+        "https://github.com/vedant-aggarwal/drool/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZDNkRFNzJFRjhFNkIxNDcKUldSSHNlYjRMdWR0YklwQlJhTUR4TXBTTE1xKzFUcWVVTEpTL0hZMi9ldmlOcW5BWFZWeUdzRGMK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYzODc1OTIyQUM1OURERkMKUldUODNWbXNJbG1IOHdDMlN4NUZNeFRpWkgyN1pBZXJ4RFhxM3RqREswbTVHL2RySUtJMStqek8K"
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
-    "publisher": "PurpleDoubleD",
-    "copyright": "Copyright (c) 2026 PurpleDoubleD. Licensed under AGPL-3.0.",
+    "publisher": "Vedant Aggarwal",
+    "copyright": "Copyright (c) 2026 PurpleDoubleD and Drool contributors. AGPL-3.0-only.",
     "category": "DeveloperTool",
-    "shortDescription": "LU by LU Labs: local AI tools with optional cloud inference",
-    "longDescription": "LU by LU Labs is an open-source desktop app for AI chat, document retrieval, coding tools, and image and video workflows. Local inference requires compatible hardware and downloaded models. Chat and code run on the processor with at least 8 GB of system memory, while image and video generation need an NVIDIA card with 6 GB of VRAM or more. Some workflows require additional backends or runtime components. Optional cloud inference sends requests to hosted services and has separate usage limits, billing and content restrictions. Downloads, connected tools, remote access and other network features can communicate outside your device. Review the selected backend, tool permissions and data destination before sharing sensitive information.",
-    "homepage": "https://lu-labs.ai",
+    "shortDescription": "Drool: local creative tools with optional cloud inference",
+    "longDescription": "Drool is an open-source desktop app for AI chat, document retrieval, coding tools, and image and video workflows. Local inference requires compatible hardware and downloaded models. Chat and code run on the processor with at least 8 GB of system memory, while image and video generation need an NVIDIA card with 6 GB of VRAM or more. Some workflows require additional backends or runtime components. Optional cloud inference sends requests to hosted services and has separate usage limits, billing and content restrictions. Downloads, connected tools, remote access and other network features can communicate outside your device. Review the selected backend, tool permissions and data destination before sharing sensitive information.",
+    "homepage": "https://github.com/vedant-aggarwal/drool",
     "license": "AGPL-3.0-only",
     "resources": [
       "resources/whisper_server.py"

@@ -30,7 +30,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { toolRegistry, DEFAULT_PERMISSIONS } from '../index'
-import { gateCreateTools } from '../../../lib/tool-selection'
+import { gateCreateTools, selectRelevantTools, GATE_OPENING_TOOLS } from '../../../lib/tool-selection'
 import { estimateTokens } from '../../../lib/context-compaction'
 
 /** Mirrors CODEX_CATEGORIES in useCodex.ts (same reason as the sibling tests). */
@@ -111,8 +111,12 @@ const fullWire = () => JSON.stringify(wireTools(codingCatalog()))
  */
 const CODING_CHAR_CEILING = 7600
 const CODING_TOKEN_CEILING = 1730
-const FULL_CHAR_CEILING = 17880
-const FULL_TOKEN_CEILING = 4090
+// Drool's eight story tools add 5,043 serialized characters (22,886 total).
+// Only the full creative catalog grows; the ordinary coding ceiling stays fixed.
+const FULL_CHAR_CEILING = 22950
+// Budget for the expanded catalog; unlike the historical core count above,
+// this expanded token ceiling has not yet been measured against live Qwen.
+const FULL_TOKEN_CEILING = 5540
 
 describe('the coding step carries a catalog the diet actually shrank', () => {
   it('the gate really is what a plain coding turn gets', () => {
@@ -131,6 +135,21 @@ describe('the coding step carries a catalog the diet actually shrank', () => {
     const gated = gateCreateTools(codingCatalog(), PLAIN_CODING_ASK).map((t) => t.name)
     expect(gated).not.toContain('pr_resume')
     expect(gated).not.toContain('delegate_task')
+  })
+
+  it('story tools stay out of coding turns and surface for story work on both routers', () => {
+    const storyNames = codingCatalog().filter(t => t.name.startsWith('storyboard_')).map(t => t.name)
+    expect(storyNames).toHaveLength(8)
+    expect(gateCreateTools(codingCatalog(), PLAIN_CODING_ASK).some(t => storyNames.includes(t.name))).toBe(false)
+    const request = 'Create a manga storyboard and review its character panels'
+    const gated = gateCreateTools(codingCatalog(), request).map(t => t.name)
+    const selected = selectRelevantTools(request, codingCatalog(), DEFAULT_PERMISSIONS).map(t => t.name)
+    for (const name of storyNames) {
+      expect(gated).toContain(name)
+      expect(selected).toContain(name)
+      expect(GATE_OPENING_TOOLS).toContain(name)
+      expect(gateCreateTools(codingCatalog(), `Use ${name}`).map(t => t.name)).toContain(name)
+    }
   })
 
   it('the serialized coding catalog stays under its ceiling', () => {

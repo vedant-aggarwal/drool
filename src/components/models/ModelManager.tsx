@@ -13,6 +13,7 @@ import { ModelCard } from './ModelCard'
 import { PullModelDialog } from './PullModelDialog'
 import { DiscoverModels } from './DiscoverModels'
 import { CivitaiSearchPanel } from './CivitaiSearchPanel'
+import { HuggingFaceLibrary } from './HuggingFaceLibrary'
 import { LoraManager, LORA_USE_HINT, type LoraRow } from './LoraManager'
 import { Modal } from '../ui/Modal'
 import { GlowButton } from '../ui/GlowButton'
@@ -622,6 +623,7 @@ export function ModelManager() {
                   search={searchQuery}
                   searchSubmitToken={searchSubmitToken}
                 />
+                <HuggingFaceLibrary category="lora" search={searchQuery} searchSubmitToken={searchSubmitToken} />
               </div>
             ) : (
               <DiscoverModels

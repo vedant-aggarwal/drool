@@ -62,6 +62,9 @@ vi.mock('../../../api/engine', () => ({
 }))
 vi.mock('../../settings/MlxMediaSettings', () => ({ MlxMediaSettings: () => createElement('div', null, 'mlx-panel') }))
 vi.mock('../DiscoverModels', () => ({ DiscoverModels: () => createElement('div', null, 'discover-panel') }))
+// HF search/authentication has its own component tests. Keep its read-only
+// token-presence probe separate from this suite's delete-command assertions.
+vi.mock('../HuggingFaceLibrary', () => ({ HuggingFaceLibrary: () => createElement('div', null, 'huggingface-panel') }))
 vi.mock('../../chat/LuEngineSwitchBar', () => ({ LuEngineSwitchBar: () => null }))
 vi.mock('../../../hooks/useBuiltinEngineStatus', () => ({
   useBuiltinEngineStatus: () => null,

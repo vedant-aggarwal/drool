@@ -31,6 +31,7 @@ permissions:
 
 jobs:
   wait-for-build:
+    if: github.repository == 'PurpleDoubleD/locally-uncensored'
     # Poll the build-tauri job on the same release. Not strictly required —
     # auto-update uses the release's latest.json which only uploads after
     # tauri-action finishes — but announcing before installers exist confuses

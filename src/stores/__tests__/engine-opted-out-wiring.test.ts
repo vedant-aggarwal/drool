@@ -16,7 +16,8 @@ import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const read = (p: string) => readFileSync(resolve(here, p), 'utf8')
+// Checkout line endings must not change the deliberate-pick wiring guard.
+const read = (p: string) => readFileSync(resolve(here, p), 'utf8').replace(/\r\n/g, '\n')
 
 describe('the five deliberate-pick call sites mark engineOptedOut', () => {
   it('Onboarding.tsx: choosing Ollama at first setup', () => {

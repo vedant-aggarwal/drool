@@ -11,6 +11,7 @@ import {
 import { registerProxyRoutes } from './proxy-routes'
 import { registerRemoteStubs } from './remote-stubs'
 import { registerMlxMediaStubs } from './mlx-media-stubs'
+import { registerDroolCodexStubs } from './drool-codex-stubs'
 import { registerDownloadRoutes } from './downloads'
 import { registerExecRoutes } from './exec-routes'
 import { registerFsRoutes } from './fs-routes'
@@ -118,6 +119,7 @@ export function devServerPlugin({ port }: DevServerOptions): Plugin {
       registerProxyRoutes(routes)
       registerRemoteStubs(routes)
       registerMlxMediaStubs(routes)
+      registerDroolCodexStubs(routes)
       registerComfyControlRoutes(routes, comfy)
       registerDownloadRoutes(routes)
       registerComfyInstallRoutes(routes, comfy)

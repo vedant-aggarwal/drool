@@ -141,6 +141,7 @@ describe('keine zweite Rechnung', () => {
     // genau die Form, die `prettySize` hatte.
     const muster = /\/\s*1024[^\n]{0,60}(toFixed|Math\.round)[^\n]{0,40}(\bB\b|KB|MB|GB|TB|KiB|MiB|GiB|TiB)/
     const treffer = dateien(WURZEL)
+      .map((p) => p.replace(/\\/g, '/'))
       .filter((p) => !p.endsWith('lib/formatters.ts'))
       .map((p) => p.slice(WURZEL.length + 1))
       .filter((p) => !NICHT_DATEIGROESSEN.includes(p))

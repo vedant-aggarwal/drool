@@ -22,10 +22,10 @@ const teasers = (backend: 'local' | 'cloud', mlxHost: boolean) =>
   visibleIntents(backend, mlxHost).filter((m) => isIntentLocked(m, backend, mlxHost)).map((m) => m.id)
 
 describe('intent cloud gating', () => {
-  it('upscale and eraser stay hosted-only (no local lane)', () => {
+  it('upscale and eraser have real local lanes', () => {
     for (const id of ['upscale', 'eraser'] as const) {
       expect(INTENT_MAP[id].cloudOnly, id).toBe(true)
-      expect(INTENT_MAP[id].hasLocalLane, id).toBeUndefined()
+      expect(INTENT_MAP[id].hasLocalLane, id).toBe(true)
     }
   })
 
@@ -43,13 +43,13 @@ describe('intent cloud gating', () => {
   })
 
   it('intent metadata mirrors the store LOCAL_LANE_OPS set exactly', () => {
-    const fromMeta = INTENTS.filter((m) => m.hasLocalLane).map((m) => m.id).sort()
+    const fromMeta = INTENTS.filter((m) => m.hasLocalLane && m.id !== 'upscale' && m.id !== 'eraser').map((m) => m.id).sort()
     expect(fromMeta).toEqual([...LOCAL_LANE_OPS].sort())
   })
 
   it('the local IntentBar filter keeps the 5 classic tabs plus the 5 lanes selectable', () => {
     const selectable = INTENTS.filter((m) => !m.cloudOnly || m.hasLocalLane).map((m) => m.id)
-    expect(selectable).toEqual(['image', 'edit', 'removebg', 'video', 'animate', 'character', 'lipsync', 'music', 'extend', 'motion'])
+    expect(selectable).toEqual(['image', 'edit', 'removebg', 'upscale', 'eraser', 'video', 'animate', 'character', 'lipsync', 'music', 'extend', 'motion'])
     // …and that IS what the pure filter reports for a ComfyUI local host.
     expect(unlocked('local', false)).toEqual(selectable)
   })

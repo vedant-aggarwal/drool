@@ -18,22 +18,36 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 import { registerComfyControlRoutes, createComfyLauncher } from '../comfy'
 import { routeHolen } from './echte-anfrage'
 import { anfrage } from './echte-anfrage'
 
 let dir = ''
+const fixture = vi.hoisted(() => ({ root: '' }))
+// Keep the handler and fixture files real, but hide the host's drives/home.
+// Otherwise a developer's installed ComfyUI changes the empty-case result.
+vi.mock('fs', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs')>()
+  return {
+    ...fs,
+    existsSync: (path: import('node:fs').PathLike) =>
+      typeof path === 'string' && fixture.root !== '' &&
+      (path === fixture.root || path.startsWith(fixture.root + sep)) && fs.existsSync(path),
+  }
+})
 const vorherEnv = process.env.COMFYUI_PATH
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'lu-find-comfyui-'))
+  fixture.root = dir
 })
 
 afterEach(() => {
   if (vorherEnv === undefined) delete process.env.COMFYUI_PATH
   else process.env.COMFYUI_PATH = vorherEnv
   rmSync(dir, { recursive: true, force: true })
+  fixture.root = ''
   vi.unstubAllGlobals()
 })
 

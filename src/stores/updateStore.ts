@@ -180,7 +180,7 @@ interface UpdateState {
 
 // ── Config ────────────────────────────────────────────────────
 
-const GITHUB_REPO = 'purpledoubled/locally-uncensored'
+const GITHUB_REPO = 'vedant-aggarwal/drool'
 const CHECK_INTERVAL = 6 * 60 * 60 * 1000 // 6 hours
 const INITIAL_DELAY = 5_000
 /** Eigener, kurzer Deckel fuer die Pruefung beim Programmstart. Der

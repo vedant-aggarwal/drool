@@ -25,7 +25,7 @@ const offeredDefNames = AGENT_TOOL_DEFS
 // ── AGENT_TOOL_DEFS ─────────────────────────────────────────────
 
 describe('AGENT_TOOL_DEFS', () => {
-  it('contains exactly 17 tool definitions', () => {
+  it('contains 17 core tools and eight permission-gated story tools', () => {
     // 2.6.6 tool merge (plan section E): the twelve typed shell wrappers,
     // system_info, process_list and get_current_time folded into
     // shell_execute plus the environment block in the system prompt, so the
@@ -37,7 +37,9 @@ describe('AGENT_TOOL_DEFS', () => {
     // Katalogtext in JEDEM Prompt und eine Wahl mehr, die ein kleines Modell
     // treffen muss. Wer hier hochzaehlt, soll begruenden, warum sein Fall
     // nicht in ein vorhandenes Werkzeug passt.
-    expect(AGENT_TOOL_DEFS).toHaveLength(17)
+    // Drool adds structured story editing and approved local rendering.
+    // Story definitions are keyword-gated out of ordinary coding turns.
+    expect(AGENT_TOOL_DEFS).toHaveLength(25)
   })
 
   const expectedTools = [
@@ -58,6 +60,8 @@ describe('AGENT_TOOL_DEFS', () => {
     'run_workflow',
     'screenshot',
     'delegate_task',
+    'storyboard_list', 'storyboard_read', 'storyboard_create', 'storyboard_update',
+    'storyboard_panel', 'storyboard_character', 'storyboard_approve_panel', 'storyboard_render_panel',
   ]
 
   it.each(expectedTools)('includes the "%s" tool', (name) => {
@@ -105,6 +109,8 @@ describe('AGENT_TOOL_DEFS', () => {
       'file_edit', 'file_list', 'file_read', 'file_search',
       'file_write', 'image_generate', 'pr_resume',
       'run_workflow', 'screenshot', 'shell_execute',
+      'storyboard_approve_panel', 'storyboard_character', 'storyboard_create', 'storyboard_list',
+      'storyboard_panel', 'storyboard_read', 'storyboard_render_panel', 'storyboard_update',
       'video_generate',
     ])
   })

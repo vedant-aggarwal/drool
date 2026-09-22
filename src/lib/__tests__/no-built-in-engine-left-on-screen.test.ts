@@ -98,6 +98,7 @@ function sourceFiles(dir: string, ext: RegExp): string[] {
  *  comments fall out with the rest. */
 function withoutComments(src: string): string[] {
   return src
+    .replace(/\r\n/g, '\n')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .split('\n')
     .map((line) => line.replace(/(^|[^:"'`\\])\/\/.*$/, '$1'))
@@ -131,6 +132,12 @@ function joinRustContinuations(src: string): string {
 }
 
 describe('the old engine name is gone from everything a user can read', () => {
+  it('strips comments equally with Windows and Unix line endings', () => {
+    const source = '// the built-in engine\nconst label = "LU Engine"\n'
+    expect(withoutComments(source.replace(/\n/g, '\r\n'))).toEqual(withoutComments(source))
+    expect(withoutComments(source).some((line) => OLD_NAME.test(line))).toBe(false)
+    expect(withoutComments('const label = "built-in engine"\r\n').some((line) => OLD_NAME.test(line))).toBe(true)
+  })
   it('leaves no "built-in engine" or "built-in embeddings" in src/', () => {
     const left: string[] = []
     for (const file of sourceFiles(SRC, /\.(ts|tsx)$/)) {

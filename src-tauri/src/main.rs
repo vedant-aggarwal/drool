@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app_identity;
+mod drool_codex;
 mod cancel_registry;
 mod commands;
 mod crash_report;
@@ -437,8 +438,15 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(app_state)
+        .manage(drool_codex::DroolCodexState::default())
         .manage(commands::oauth::OauthPending::default())
         .invoke_handler(tauri::generate_handler![
+            drool_codex::drool_codex_connect,
+            drool_codex::drool_codex_tool_result,
+            drool_codex::drool_codex_login,
+            drool_codex::drool_codex_send,
+            drool_codex::drool_codex_interrupt,
+            drool_codex::drool_codex_disconnect,
             // LU Cloud OAuth loopback (Google/GitHub via system browser)
             commands::oauth::oauth_start,
             commands::oauth::oauth_wait,
@@ -737,7 +745,7 @@ fn main() {
 
             TrayIconBuilder::new()
                 .icon(tray_icon)
-                .tooltip("LU")
+                .tooltip("Drool")
                 .menu(&menu)
                 .on_menu_event(|app, event| {
                     match event.id().as_ref() {
@@ -843,6 +851,9 @@ fn main() {
             // server, the trainer and the MLX sidecar all running. Proved
             // live on 2026-07-28: app gone, the MLX Python still resident.
             if let tauri::RunEvent::Exit = event {
+                if let Some(codex) = app.try_state::<drool_codex::DroolCodexState>() {
+                    tauri::async_runtime::block_on(codex.shutdown());
+                }
                 if let Some(state) = app.try_state::<AppState>() {
                     state.shutdown_subprocesses();
                 }

@@ -1,3 +1,4 @@
+import { CodexStoryApproval } from '../settings/CodexStoryApproval'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Header } from './Header'
 import { StaleModelsBanner } from './StaleModelsBanner'
@@ -113,6 +114,9 @@ const loadModelManager = () => import('../models/ModelManager').then((m) => ({ d
 const loadBenchmarkView = () => import('../models/BenchmarkView').then((m) => ({ default: m.BenchmarkView }))
 const loadSettingsPage = () => import('../settings/SettingsPage').then((m) => ({ default: m.SettingsPage }))
 const loadCreateExperimental = () => import('../create/experimental/CreateExperimental').then((m) => ({ default: m.CreateExperimental }))
+const loadStoryStudio = () => import('../storyboard/StoryStudio').then(m => ({ default: m.StoryStudio }))
+const loadVoiceStudio = () => import('../voice/VoiceStudio').then(m => ({ default: m.VoiceStudio }))
+const loadConnections = () => import('../settings/ProviderConnections').then(m => ({ default: m.ProviderConnections }))
 const loadOnboarding = () => import('../onboarding/Onboarding').then((m) => ({ default: m.Onboarding }))
 
 /**
@@ -1120,6 +1124,9 @@ export function AppShell() {
             {currentView === 'models' && <LazyView load={loadModelManager} fallback={<ModelManagerSkeleton />} />}
             {currentView === 'benchmark' && <LazyView load={loadBenchmarkView} fallback={<BenchmarkSkeleton />} />}
             {currentView === 'settings' && <LazyView load={loadSettingsPage} fallback={<SettingsSkeleton />} />}
+            {currentView === 'storyboard' && <LazyView load={loadStoryStudio} fallback={<CreateSkeleton />} />}
+            {currentView === 'voice' && <LazyView load={loadVoiceStudio} fallback={<SettingsSkeleton />} />}
+            {currentView === 'connections' && <LazyView load={loadConnections} fallback={<SettingsSkeleton />} />}
             {currentView === 'create' && <LazyView load={loadCreateExperimental} fallback={<CreateSkeleton />} />}
           </main>
         </div>
@@ -1132,6 +1139,7 @@ export function AppShell() {
         onClose={() => setShowSelector(false)}
       />
       {/* Cloud gate: login → plan → beta wall, opened by the header switch. */}
+      <CodexStoryApproval />
       <CloudGateModal />
       {/* Cloud discovery sheet: opened by the Local-mode teaser surfaces
           (locked Create tabs, hosted model rows). */}

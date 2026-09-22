@@ -1,7 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import { execFileSync } from 'node:child_process'
 import { resolve, join } from 'node:path'
-import { existsSync, statSync, mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, statSync, mkdtempSync, rmSync, readFileSync, writeFileSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { asNumber, prop } from '../../types/json-guards'
 import { bashInterpreter } from './bash-interpreter'
@@ -13,6 +13,13 @@ const REPO_ROOT = resolve(__dirname, '../../..')
 // Not the bare name 'bash': on Windows that resolves to the WSL alias stub in
 // WindowsApps and never reaches a shell. See bash-interpreter.ts.
 const BASH = bashInterpreter()
+// Git Bash prints /c/... whereas Node uses C:/... for the same Windows file.
+const comparablePath = (path: string) => {
+  const slashes = path.replace(/\\/g, '/')
+  return process.platform === 'win32'
+    ? slashes.replace(/^\/([a-z])\//i, (_, drive: string) => `${drive.toUpperCase()}:/`)
+    : slashes
+}
 
 /** Run a snippet with the script sourced. Returns stdout+stderr, both wanted:
  *  the pin guards report through die(), which writes to stderr. */
@@ -115,8 +122,8 @@ describe('build-llama.sh', () => {
 
   it('resource_llama_dir_for: one directory per triple under src-tauri/resources/llama', () => {
     const { out } = callFn('resource_llama_dir_for', 'x86_64-pc-windows-msvc')
-    expect(out.replace(/\\/g, '/')).toBe(
-      `${REPO_ROOT.replace(/\\/g, '/')}/src-tauri/resources/llama/x86_64-pc-windows-msvc`,
+    expect(comparablePath(out)).toBe(
+      `${comparablePath(REPO_ROOT)}/src-tauri/resources/llama/x86_64-pc-windows-msvc`,
     )
   })
 
@@ -192,12 +199,14 @@ describe('build-llama.sh: staging the dynamic-ISA companion libraries', () => {
     expect(existsSync(join(dir, 'llama-server.exe'))).toBe(false)
   })
 
-  it('copies .so files on Linux, dereferencing symlinks (SONAME needs the real versioned name)', () => {
+  // Unix SONAME symlinks require privileges on Windows; Linux CI covers this
+  // case, while the .dll staging case above runs on every host.
+  it.skipIf(process.platform === 'win32')('copies .so files on Linux, dereferencing symlinks (SONAME needs the real versioned name)', () => {
     const binOutDir = tmp('llama-bin-linux-')
     writeFileSync(join(binOutDir, 'llama-server'), 'exe')
     writeFileSync(join(binOutDir, 'libggml-base.so.1.2.3'), 'real-bytes')
-    execFileSync('ln', ['-s', 'libggml-base.so.1.2.3', join(binOutDir, 'libggml-base.so.1')])
-    execFileSync('ln', ['-s', 'libggml-base.so.1', join(binOutDir, 'libggml-base.so')])
+    symlinkSync('libggml-base.so.1.2.3', join(binOutDir, 'libggml-base.so.1'))
+    symlinkSync('libggml-base.so.1', join(binOutDir, 'libggml-base.so'))
     writeFileSync(join(binOutDir, 'libggml-cpu-haswell.so'), 'cpu-kernel')
     const { code, repoRoot } = stage('x86_64-unknown-linux-gnu', binOutDir, join(binOutDir, 'llama-server'))
     expect(code).toBe(0)
@@ -242,7 +251,9 @@ describe('build-llama.sh: staging the dynamic-ISA companion libraries', () => {
  * users installed was in practice unpinned. The commit SHA is the pin now; the
  * tag stays as the readable name and is cross-checked against it.
  */
-describe('build-llama.sh — the llama.cpp revision is pinned to a commit', () => {
+// Each case starts several real Git/Bash processes and some clone twice.
+// Windows process startup under the full suite exceeds Vitest's default 5s.
+describe('build-llama.sh — the llama.cpp revision is pinned to a commit', { timeout: 20_000 }, () => {
   const temps: string[] = []
   const tmp = (prefix: string) => {
     const dir = mkdtempSync(join(tmpdir(), prefix))

@@ -27,6 +27,12 @@ export const MUTATING_TOOLS = new Set([
   'run_workflow',
   'delegate_task',
   'screenshot',
+  'storyboard_create',
+  'storyboard_update',
+  'storyboard_panel',
+  'storyboard_character',
+  'storyboard_approve_panel',
+  'storyboard_render_panel',
 ])
 
 /** May this tool stay in the catalog during a read-only turn? */

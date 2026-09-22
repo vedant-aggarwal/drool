@@ -46,15 +46,15 @@ describe('wie das ausgelieferte Programm heisst', () => {
     // C:\Program Files\Locally Uncensored\ ist der Pfad, unter dem die
     // vorhandenen Installationen liegen. Ein anderer Name dort ist keine
     // Umbenennung, sondern eine zweite Installation.
-    expect(windows.productName).toBe('Locally Uncensored')
-    expect(linux.productName).toBe('Locally Uncensored')
+    expect(windows.productName).toBe('Drool')
+    expect(linux.productName).toBe('Drool')
   })
 
   it('der Mac bleibt bei LU, und das ist Absicht', () => {
     // LU.app, kurz genug fuer das Dock. macOS uebernimmt den Basisnamen, es
     // steht also bewusst KEIN productName in der Mac-Datei.
     expect(macos.productName).toBeUndefined()
-    expect(basis.productName).toBe('LU')
+    expect(basis.productName).toBe('Drool')
   })
 
   it('die Kennung ist die der echten App', () => {

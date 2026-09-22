@@ -39,6 +39,8 @@ const MEDIA_KEYWORDS = [
   'video', 'animate', 'animation', 'clip', 'mp4', 'make a video', 'turn into a video', 'movie', 'gif', 'animiere',
 ]
 const WORKFLOW_KEYWORDS = ['workflow', 'run workflow', 'automate']
+const STORY_KEYWORDS = ['storyboard', 'story studio', 'story project', 'panel', 'manga', 'comic', 'character', 'roleplay', 'role-play', 'illustrated story', 'geschichte', 'figur']
+const STORY_TOOLS = ['storyboard_list', 'storyboard_read', 'storyboard_create', 'storyboard_update', 'storyboard_panel', 'storyboard_character', 'storyboard_approve_panel', 'storyboard_render_panel']
 
 // A6: the two remaining ride-alongs. pr_resume only ever fires on a PR link or
 // a "continue this PR", delegate_task only on an explicit fan-out, and both
@@ -90,6 +92,7 @@ export const CREATE_TOOLS = ['image_generate', 'video_generate', 'run_workflow']
  * off exactly those three; this map is the superset the filter walks.
  */
 const GATE_KEYWORDS: Record<string, readonly string[]> = {
+  ...Object.fromEntries(STORY_TOOLS.map(name => [name, STORY_KEYWORDS])),
   image_generate: MEDIA_KEYWORDS,
   video_generate: MEDIA_KEYWORDS,
   run_workflow: WORKFLOW_KEYWORDS,
@@ -126,6 +129,7 @@ export function isGatedTool(name: string): boolean {
 }
 
 const TOOL_GROUPS: ToolGroup[] = [
+  { keywords: STORY_KEYWORDS, tools: STORY_TOOLS },
   {
     // Web search intents. Only EXPLICIT web cues route here. Bare 'search',
     // 'latest', 'current', 'aktuell', 'neueste', 'suche' were removed: they

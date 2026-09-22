@@ -8,5 +8,7 @@ export { DEFAULT_PERMISSIONS } from './types'
 // Initialize: register all built-in tools on import
 import { toolRegistry } from './tool-registry'
 import { registerBuiltinTools } from './builtin-tools'
+import { registerStoryboardTools } from './storyboard-tools'
 
 registerBuiltinTools(toolRegistry)
+registerStoryboardTools(toolRegistry)

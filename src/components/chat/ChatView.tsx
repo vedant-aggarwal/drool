@@ -380,7 +380,7 @@ export function ChatView() {
                     height={56}
                     className={`${MONOGRAM_INVERT} opacity-90`}
                   />
-                  <h1 className="t-display text-gray-900 dark:text-gray-100">Ask LU anything</h1>
+                  <h1 className="t-display text-gray-900 dark:text-gray-100">Ask Drool anything</h1>
                   <p className="t-body text-gray-500 max-w-[40ch]">{landing.subline}</p>
                   {landing.note && (
                     <p className="t-mono w-full truncate px-4 text-gray-400 dark:text-gray-500" title={landing.note}>
@@ -525,7 +525,7 @@ export function ChatView() {
                           height={56}
                           className={`${MONOGRAM_INVERT} opacity-90`}
                         />
-                        <h1 className="t-display text-gray-900 dark:text-gray-100">Ask LU anything</h1>
+                        <h1 className="t-display text-gray-900 dark:text-gray-100">Ask Drool anything</h1>
                         <p className="t-body text-gray-500 max-w-[40ch]">{landing.subline}</p>
                         {landing.note && (
                           <p className="t-mono w-full truncate px-4 text-gray-400 dark:text-gray-500" title={landing.note}>

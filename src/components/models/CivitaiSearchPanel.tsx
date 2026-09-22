@@ -130,6 +130,20 @@ export function CivitaiSearchPanel({ modelType, title, placeholder, search = '',
         </button>
       </div>
 
+      {modelType === 'LORA' && (
+        <div className="space-y-2">
+          <p className="text-xs text-gray-500">Explore LoRAs by base model or style. Check that the result matches your generation model before downloading.</p>
+          <div className="flex flex-wrap gap-2" aria-label="LoRA search suggestions">
+            {['FLUX', 'SDXL', 'Wan', 'manga', 'cinematic', 'character'].map(suggestion => (
+              <button key={suggestion} disabled={searching} onClick={() => { setQuery(suggestion); void runSearch(suggestion) }}
+                className="min-h-10 px-3 rounded-lg border border-gray-200 dark:border-white/10 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lu-accent disabled:opacity-50 transition-colors">
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {results.length > 0 && (
         <div className="space-y-2 max-h-[50vh] overflow-y-auto">
           {results.map((model) => {

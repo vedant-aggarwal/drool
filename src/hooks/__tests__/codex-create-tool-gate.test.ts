@@ -73,7 +73,8 @@ describe('a plain coding turn does not carry the generators', () => {
     // tool-catalog-tokens.test.ts, nicht von einem Menschen.
     const before = names(codingCatalog())
     const after = names(gateCreateTools(codingCatalog(), 'fix the failing test in parser.ts'))
-    expect(before.length - after.length).toBe(7)
+    // Drool adds eight story tools, also absent from ordinary coding turns.
+    expect(before.length - after.length).toBe(15)
     expect(before.filter((n) => !after.includes(n)).sort()).toEqual([...GATE_OPENING_TOOLS].sort())
   })
 
@@ -247,12 +248,14 @@ describe('a run that discovers halfway through that it needs a picture', () => {
     )
   })
 
-  it('isGatedTool nennt genau die sieben Torwerkzeuge und nichts, was immer faehrt', () => {
+  it('isGatedTool includes the seven core gates and eight story gates', () => {
     // Seit 2.6.8 sieben: die drei Erzeuger, pr_resume, delegate_task und
     // dessen zwei Begleiter. Die Liste steht hier ausgeschrieben und wird
     // NICHT aus GATE_KEYWORDS abgeleitet — sonst pruefte sie eine Karte gegen
     // sich selbst und waere fuer jeden kuenftigen Eintrag automatisch gruen.
-    const TOR = [...CREATE_TOOLS, 'pr_resume', 'delegate_task', 'check_tasks', 'message_agent']
+    const TOR = [...CREATE_TOOLS, 'pr_resume', 'delegate_task', 'check_tasks', 'message_agent',
+      'storyboard_list', 'storyboard_read', 'storyboard_create', 'storyboard_update',
+      'storyboard_panel', 'storyboard_character', 'storyboard_approve_panel', 'storyboard_render_panel']
     for (const n of TOR) expect(isGatedTool(n), n).toBe(true)
     for (const n of ['file_read', 'file_edit', 'shell_execute', 'todo_write', 'web_search']) {
       expect(isGatedTool(n), n).toBe(false)

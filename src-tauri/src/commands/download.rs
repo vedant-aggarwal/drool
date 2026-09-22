@@ -397,7 +397,7 @@ mod civitai_auth_tests {
             assert!(!msg.contains(&format!("(HTTP {status})")), "{msg}");
             assert!(!msg.contains("cannot help"), "{msg}");
         }
-        let sent = download_http_error("https://hf.co/x/y/resolve/main/m.gguf", 401, true, "m.gguf");
+        let sent = download_http_error("https://huggingface.co/x/y/resolve/main/m.gguf", 401, true, "m.gguf");
         assert!(sent.contains("was sent and rejected"), "{sent}");
         assert!(!sent.contains("add a Hugging Face token"), "{sent}");
         // A 404 on the hub is still a dead address, brackets and all.
@@ -408,8 +408,12 @@ mod civitai_auth_tests {
     #[test]
     fn the_hub_host_rule_is_as_strict_as_the_civitai_one() {
         assert!(super::is_huggingface_host("https://huggingface.co/a/b/resolve/main/m.gguf"));
-        assert!(super::is_huggingface_host("https://HF.co/a/b/resolve/main/m.gguf"));
-        assert!(super::is_huggingface_host("https://cdn-lfs.huggingface.co/x"));
+        assert!(super::is_huggingface_host("https://HUGGINGFACE.co:443/a/b/resolve/main/m.gguf"));
+        assert!(!super::is_huggingface_host("https://HF.co/a/b/resolve/main/m.gguf"));
+        assert!(!super::is_huggingface_host("https://cdn-lfs.huggingface.co/x"));
+        assert!(!super::is_huggingface_host("http://huggingface.co/x"));
+        assert!(!super::is_huggingface_host("https://huggingface.co:8443/x"));
+        assert!(!super::is_huggingface_host("https://user@huggingface.co/x"));
         assert!(!super::is_huggingface_host("https://huggingface.co.evil.test/x"));
         assert!(!super::is_huggingface_host("https://evil.test/huggingface.co/x"));
         // The backslash ends the host in a special scheme: reqwest talks to
@@ -1078,14 +1082,19 @@ pub(crate) fn is_civitai_host(url: &str) -> bool {
         || host.ends_with(".civitai.red")
 }
 
-/// Same rule for the Hugging Face hub, the only host the stored Hugging Face
-/// token is ever sent to. `hf.co` is the hub's own short alias.
+/// The credential-bearing Hub origin. Aliases and CDN subdomains can be
+/// fetched anonymously, but receive no stored token. Explicit nonstandard
+/// ports and URL userinfo are excluded as well as HTTPS downgrades.
 pub(crate) fn is_huggingface_host(url: &str) -> bool {
-    let host = match url::Url::parse(url) {
-        Ok(u) => u.host_str().unwrap_or("").to_ascii_lowercase(),
+    let parsed = match url::Url::parse(url) {
+        Ok(u) => u,
         Err(_) => return false,
     };
-    host == "huggingface.co" || host == "hf.co" || host.ends_with(".huggingface.co")
+    parsed.scheme() == "https"
+        && parsed.host_str() == Some("huggingface.co")
+        && parsed.port_or_known_default() == Some(443)
+        && parsed.username().is_empty()
+        && parsed.password().is_none()
 }
 
 /// What the user reads when a download comes back refused.
@@ -1158,16 +1167,16 @@ pub(crate) fn download_http_error(url: &str, status: u16, sent_token: bool, file
 /// A Bearer header rather than a `?token=` query parameter, which CivitAI
 /// documents as well: a key in the URL is written into the download meta the
 /// app persists, printed in every log line that quotes the address, and kept in
-/// the browser history of the web build. reqwest strips Authorization itself
-/// when a redirect leaves the host, which is exactly right here: CivitAI hands
-/// the file to a signed CDN URL that must not see the key.
+/// the browser history of the web build. The manual redirect loop rebuilds
+/// each request and rechecks the credential's origin: signed CDN URLs must
+/// not receive a Hub/CivitAI credential.
 ///
 /// Host-gated both ways IN HERE, not only in the caller: the CivitAI key goes
 /// to CivitAI, the Hugging Face token to the hub, and a URL that is neither
 /// carries nothing. A blank key is no key. The caller still decides whether to
 /// read the hub token out of the vault at all, which is a different question
 /// from whether it may be sent.
-fn outgoing_token(url: &str, civitai_key: Option<&str>, hf_token: Option<&str>) -> Option<String> {
+pub(crate) fn outgoing_token(url: &str, civitai_key: Option<&str>, hf_token: Option<&str>) -> Option<String> {
     let civitai = civitai_key
         .map(str::trim)
         .filter(|t| !t.is_empty() && is_civitai_host(url));
@@ -1175,22 +1184,6 @@ fn outgoing_token(url: &str, civitai_key: Option<&str>, hf_token: Option<&str>) 
         .map(str::trim)
         .filter(|t| !t.is_empty() && is_huggingface_host(url));
     civitai.or(hub).map(|t| t.to_string())
-}
-
-/// One reqwest client, built the same way for every request this module makes.
-///
-/// The SSRF guard is not optional and not a per-call decision: model downloads
-/// come from public catalogs, and a crafted catalog or model URL must not be
-/// able to reach an internal service or 169.254.169.254 — on the first hop or
-/// on any redirect.
-fn download_client(connect_secs: u64, read_secs: u64) -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .user_agent("LocallyUncensored/1.5")
-        .redirect(crate::commands::proxy::ssrf_safe_redirect_policy(10))
-        .connect_timeout(std::time::Duration::from_secs(connect_secs))
-        .read_timeout(std::time::Duration::from_secs(read_secs))
-        .build()
-        .map_err(|e| os_error::english(&e))
 }
 
 /// The exact byte count the SERVER states for `url`, or None when it will not
@@ -1205,12 +1198,13 @@ fn download_client(connect_secs: u64, read_secs: u64) -> Result<reqwest::Client,
 /// an unreachable host is "cannot tell", and arriving at it slowly helps
 /// nobody.
 async fn exact_remote_size(url: &str) -> Option<u64> {
-    crate::commands::proxy::validate_public_url(url).ok()?;
-    let client = download_client(8, 15).ok()?;
+    use crate::commands::proxy::{ssrf_safe_fetch, ExternalFetchOptions};
+    let token = if is_huggingface_host(url) { crate::commands::mlx::hf_token() } else { None };
 
     // A transport error means offline or a black-holed host. Retrying the same
     // unreachable address with a second request only doubles the wait.
-    let head = client.head(url).send().await.ok()?;
+    let head = ssrf_safe_fetch(url, "model size", std::time::Duration::from_secs(15), 10,
+        ExternalFetchOptions { hf_token: token.as_deref(), head: true, ..Default::default() }).await.ok()?;
     if head.status().is_success() {
         if let Some(n) = head.content_length() {
             if n > 0 {
@@ -1222,7 +1216,8 @@ async fn exact_remote_size(url: &str) -> Option<u64> {
     // The host answered, just not usefully: some CDNs reply 405 to HEAD, or drop
     // the length from it. A one byte ranged GET costs one more round trip and
     // carries the whole size in Content-Range.
-    let r = client.get(url).header("Range", "bytes=0-0").send().await.ok()?;
+    let r = ssrf_safe_fetch(url, "model size", std::time::Duration::from_secs(15), 10,
+        ExternalFetchOptions { hf_token: token.as_deref(), range_start: Some(0), range_end: Some(0), ..Default::default() }).await.ok()?;
     let v = r.headers().get(reqwest::header::CONTENT_RANGE)?.to_str().ok()?;
     total_from_content_range(v)
 }
@@ -1301,10 +1296,6 @@ async fn do_download(
     // per-connect and per-read. A dead socket now fails in two minutes and
     // resumes from the partial on the next attempt; a slow one is left to
     // finish.
-    let client = download_client(30, 120)?;
-
-    let mut request = client.get(url);
-
     // The Hugging Face token from Settings goes to the hub and to no other
     // host: gated repos answer 401 without it, and anonymous hub traffic is
     // throttled.
@@ -1312,20 +1303,21 @@ async fn do_download(
     // Kept as a value: weiter unten fragt die Fehlermeldung noch einmal, ob
     // ein Schluessel mitgegangen ist.
     let sent_token: Option<String> = outgoing_token(url, auth_token.as_deref(), hf_token.as_deref());
-    if let Some(t) = sent_token.as_deref() {
-        request = request.bearer_auth(t);
-    }
-
     // Resume support: request only remaining bytes
     if resume_offset > 0 {
-        request = request.header("Range", format!("bytes={}-", resume_offset));
         println!("[Download] Resuming from byte {}", resume_offset);
     }
 
-    let response = request
-        .send()
-        .await
-        .map_err(|e| format!("Request failed: {}", os_error::english(&e)))?;
+    let response = crate::commands::proxy::ssrf_safe_fetch(
+        url, "model download", std::time::Duration::from_secs(120), 10,
+        crate::commands::proxy::ExternalFetchOptions {
+            civitai_token: auth_token.as_deref(),
+            hf_token: hf_token.as_deref(),
+            range_start: if resume_offset > 0 { Some(resume_offset) } else { None },
+            streaming: true,
+            ..Default::default()
+        },
+    ).await?;
 
     let status = response.status();
     if !status.is_success() && status.as_u16() != 206 {
@@ -2263,8 +2255,8 @@ pub async fn download_model_to_path(
     let filename_clone = filename.clone();
 
     tokio::spawn(async move {
-        // No auth token here: download_model_to_path serves the text-model
-        // lane (HuggingFace GGUFs into the app models dir), never CivitAI.
+        // No caller-supplied CivitAI key here. do_download reads the stored HF
+        // token for exact HTTPS Hub URLs, including this text-model lane.
         match do_download(&url, &dest_file, &downloads_arc, &id_clone, token, resume_offset,
                         CatalogClaims { expected_bytes, expected_sha256, auth_token: None }).await {
             Ok(_) => {

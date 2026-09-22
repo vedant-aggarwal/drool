@@ -44,6 +44,9 @@ interface NavTarget {
 const NAV_TARGETS: readonly NavTarget[] = [
   { id: 'chat', label: 'Chat', view: 'chat' },
   { id: 'create', label: 'Create', view: 'create' },
+  { id: 'storyboard', label: 'Stories', view: 'storyboard' },
+  { id: 'voice', label: 'Voice', view: 'voice' },
+  { id: 'connections', label: 'Connections', view: 'connections' },
   { id: 'compare', label: 'Compare', view: null },
   { id: 'benchmark', label: 'Benchmark', view: 'benchmark', localOnly: true },
   { id: 'models', label: 'Models', view: 'models', localOnly: true },
@@ -377,7 +380,7 @@ export function Header() {
             setView('chat')
           }}
           className="flex items-center shrink-0 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition"
-          aria-label="LU"
+          aria-label="Drool"
         >
           {/* Top-panel brand mark: the black/white monogram only (no wordmark),
               inverted per theme. Matches the web companion.
@@ -386,7 +389,7 @@ export function Header() {
               dieselbe Grafik 39px unter der 18px-Fassung im Fensterbalken;
               20px nimmt den Groessensprung heraus, ohne das Zeichen zu
               verlieren. Warum Vektor: siehe `layout/brand.ts`. */}
-          <img src={MONOGRAM} alt="" width={20} height={20} className={`${MONOGRAM_INVERT} opacity-80`} />
+          <span className="font-semibold tracking-tight">Drool</span><img src={MONOGRAM} alt="" width={20} height={20} className={`${MONOGRAM_INVERT} opacity-80`} />
         </button>
       </div>
 

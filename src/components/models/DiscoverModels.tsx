@@ -2,23 +2,21 @@ import { useCallback, useState, useEffect, useRef } from 'react'
 import { chatRecommendationGroups, isBelowChatMinimum, SMALL_CHAT_MODEL_WARNING } from '../../lib/chat-model-minimum'
 import { bundleIsComplete, bundleIsDownloading, bundleHasErrors } from '../../lib/bundle-state'
 import { motion } from 'framer-motion'
-import { Search, XCircle, Sparkles, Unlock, ShieldCheck, ExternalLink, Info } from 'lucide-react'
+import { XCircle, Sparkles, Unlock, ShieldCheck, ExternalLink, Info } from 'lucide-react'
 import { X } from 'lucide-react'
 import {
-  searchHuggingFaceModels,
   getImageBundles, getVideoBundles,
   getUncensoredTextModels, getMainstreamTextModels,
   detectProviderModelPath, startModelDownloadToPath, luEngineDownloadDir,
   startModelDownload,
   installBundleComplete, checkBundlesInstalled, resolveHfGgufFiles, planModelDownload,
-  type DiscoverModel, type DownloadProgress, type ModelBundle, type HfGgufFile,
+  type DiscoverModel, type DownloadProgress, type ModelBundle, type HfGgufFile, type HfGgufResolution,
 } from '../../api/discover'
 import { getSystemVRAM } from '../../api/comfyui'
 import { getMaxVramGb, getTotalRamGb, bundleVramNeedGb } from '../../lib/hardware'
 import { openExternal } from '../../api/backend'
 import { useModels } from '../../hooks/useModels'
 import { useDownloadStore } from '../../stores/downloadStore'
-import { ModelGridSkeleton } from '../layout/ViewSkeletons'
 import { useProviderStore } from '../../stores/providerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useModelStore } from '../../stores/modelStore'
@@ -44,6 +42,7 @@ import {
 } from './ModelTiles'
 import { ICON_SM } from '../ui/icon-size'
 import { CivitaiSearchPanel } from './CivitaiSearchPanel'
+import { HuggingFaceLibrary } from './HuggingFaceLibrary'
 
 interface Props {
   category: ModelCategory
@@ -218,7 +217,6 @@ export function awaitDownloadedFile(
 }
 
 export function DiscoverModels({ category, search = '', searchSubmitToken = 0 }: Props) {
-  const [loading, setLoading] = useState(false)
   const [systemVRAM, setSystemVRAM] = useState<number | null>(null)
   const [ramGb, setRamGb] = useState<number | null>(null)
   // Mainstream is the default + first tab (David 2026-07-17) — Unfiltered is
@@ -528,26 +526,6 @@ export function DiscoverModels({ category, search = '', searchSubmitToken = 0 }:
     }
   }
 
-  const [hfSearchResults, setHfSearchResults] = useState<DiscoverModel[]>([])
-
-  const handleSearch = async () => {
-    if (!search.trim() || !isText) return
-    setLoading(true)
-    try {
-      const results = await searchHuggingFaceModels(search.trim())
-      setHfSearchResults(results)
-    } catch { /* keep existing */ }
-    setLoading(false)
-  }
-
-  // The search input lives in the ModelManager header. It feeds `search`
-  // (live filter) and bumps `searchSubmitToken` on Enter, which we treat as
-  // "run the HuggingFace catalog search".
-  useEffect(() => {
-    if (searchSubmitToken > 0 && search.trim() && isText) handleSearch()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchSubmitToken])
-
   const uncensoredModels = isText ? getUncensoredTextModels() : []
   const mainstreamModels = isText ? getMainstreamTextModels() : []
 
@@ -595,7 +573,7 @@ export function DiscoverModels({ category, search = '', searchSubmitToken = 0 }:
     return `Download failed: ${msg}`
   }
 
-  const handleTextDownload = async (model: DiscoverModel) => {
+  const handleTextDownload = async (model: DiscoverModel, exactResolution?: HfGgufResolution) => {
     // Bug Y/a v2.5.0 — Aldrich Ironhart Discord. Pre-v2.5.0 we picked the
     // download backend by "whichever is enabled" with LM Studio winning when
     // both were on. That decoupled the download path from the active chat
@@ -622,6 +600,10 @@ export function DiscoverModels({ category, search = '', searchSubmitToken = 0 }:
     const isActiveBuiltin = downloadTarget === 'builtin'
     const isActiveLmStudio = downloadTarget === 'lmstudio'
     const isActiveOllama = downloadTarget === 'ollama'
+
+    if (exactResolution && isActiveOllama) {
+      throw new Error('Exact Hugging Face file selection requires LU Engine or LM Studio. Switch the chat provider first; Ollama chooses files by quantization tag.')
+    }
 
     // Ollama-native models: only meaningful with Ollama present. If the user
     // is chatting on LM Studio and clicks one of these (e.g. Qwen3.6 35B
@@ -653,9 +635,9 @@ export function DiscoverModels({ category, search = '', searchSubmitToken = 0 }:
     // exact filename. Querying the tree turns the guess into the truth.
     const parsed = parseHfUrl(model.downloadUrl)
     const preferredQuant = extractGgufQuant(model.filename)
-    const resolution = parsed
+    const resolution = exactResolution || (parsed
       ? await resolveHfGgufFiles(`${parsed.user}/${parsed.repo}`, preferredQuant)
-      : null
+      : null)
 
     const lmStudioEnabled = !!providers.openai?.enabled && (providers.openai?.name || '').toLowerCase().includes('lm studio')
     const ollamaEnabledNow = !!providers.ollama?.enabled
@@ -749,7 +731,7 @@ export function DiscoverModels({ category, search = '', searchSubmitToken = 0 }:
       }
       for (const f of plan) {
         dlStore.getState().setMeta(f.filename, f.url, 'gguf', targetDir)
-        await startModelDownloadToPath(f.url, targetDir, f.filename, f.expectedBytes)
+        await startModelDownloadToPath(f.url, targetDir, f.filename, f.expectedBytes, f.filename === realName ? single?.sha256 : undefined)
       }
       dlStore.getState().startPolling()
       if (isActiveBuiltin) {
@@ -921,6 +903,16 @@ export function DiscoverModels({ category, search = '', searchSubmitToken = 0 }:
           drift into two versions of itself. */}
       <LuEngineSwitchBar />
 
+      <HuggingFaceLibrary
+        category={category}
+        search={search}
+        searchSubmitToken={searchSubmitToken}
+        vramGb={systemVRAM}
+        bundles={[...getImageBundles(), ...getVideoBundles()]}
+        onInstallText={handleTextDownload}
+        onInstallBundle={handleBundleInstall}
+      />
+
       {/* D-S22 · die Legende zu den Faehigkeitszeichen auf den Kacheln.
           Steht einmal hier statt 53 Mal als Tooltip, den man erst findet,
           wenn man auf einem 12px-Glyph stehenbleibt. Sie rendert aus
@@ -1035,9 +1027,7 @@ export function DiscoverModels({ category, search = '', searchSubmitToken = 0 }:
           Satz mittig auf 32px Hoehe, wo gleich sechs bis dreiundfuenfzig
           Kacheln stehen — die Seite sprang beim Eintreffen der Liste um
           mehrere Bildschirmhoehen. Das Skelett traegt die Rastergeometrie. */}
-      {loading ? (
-        <ModelGridSkeleton />
-      ) : isText ? (
+      {isText ? (
         <>
           {/* Start here — derived picks for the active tab */}
           {topPicks.length >= 2 && (
@@ -1073,38 +1063,10 @@ export function DiscoverModels({ category, search = '', searchSubmitToken = 0 }:
             )}
           </div>
 
-          {/* HuggingFace Search Results */}
-          {hfSearchResults.length > 0 && (
-            <div className="space-y-1.5 mt-6">
-              <div className="flex items-center gap-1.5 px-1">
-                <Search size={10} className="text-gray-400" />
-                <h3 className="t-micro font-semibold uppercase tracking-[0.12em] text-gray-500">HuggingFace results</h3>
-                <div className="flex-1 h-px bg-gray-200 dark:bg-white/[0.06]" />
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2.5">
-                {hfSearchResults.map((model, i) => (
-                  <motion.div key={model.name + i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 12) * 0.025 }}>
-                    <ModelTile
-                      variants={[model]}
-                      vramGb={systemVRAM}
-                      isInstalled={isModelFullyInstalled}
-                      dlState={getModelDownloadState}
-                      onDownload={handleTextDownload}
-                      onUse={handleUseInstalled}
-                      canUse={canUseInstalled}
-                      isUsing={(m) => installedEntryFor(m)?.name === usingModel && usingModel !== null}
-                      onInfo={setInfoModel}
-                      onOpenUrl={(u) => openExternal(u)}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          )}
         </>
       ) : null}
 
-      {!loading && filteredBundles.length === 0 && filteredUncensored.length === 0 && filteredMainstream.length === 0 && (
+      {filteredBundles.length === 0 && filteredUncensored.length === 0 && filteredMainstream.length === 0 && (
         <p className="text-center text-gray-500 py-4">No models found</p>
       )}
 

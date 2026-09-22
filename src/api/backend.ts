@@ -486,6 +486,12 @@ export async function backendCall<T = unknown>(
 
   // Dev mode: map command to /local-api/ endpoint
   const endpointMap: Record<string, { path: string; method?: string }> = {
+    drool_codex_connect: { path: "/local-api/drool-codex-connect", method: "POST" },
+    drool_codex_login: { path: "/local-api/drool-codex-login", method: "POST" },
+    drool_codex_send: { path: "/local-api/drool-codex-send", method: "POST" },
+    drool_codex_interrupt: { path: "/local-api/drool-codex-interrupt", method: "POST" },
+    drool_codex_disconnect: { path: "/local-api/drool-codex-disconnect", method: "POST" },
+    drool_codex_tool_result: { path: "/local-api/drool-codex-tool-result", method: "POST" },
     start_comfyui: { path: "/local-api/start-comfyui", method: "POST" },
     stop_comfyui: { path: "/local-api/stop-comfyui", method: "POST" },
     comfyui_status: { path: "/local-api/comfyui-status" },

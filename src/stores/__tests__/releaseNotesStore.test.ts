@@ -284,8 +284,8 @@ describe('the notes table', () => {
     const shipping = JSON.parse(
       readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../package.json'), 'utf8'),
     ).version as string
-    expect(shipping).toBe('3.0.1')
-    const prose = proseOf(shipping)
+    expect(releaseNoteFor(shipping)).toBeDefined()
+    const prose = proseOf('3.0.1')
     for (const anchor of [
       'avx2', 'total capacity, not free memory', 'ld_library_path',
       'pythonhome', 'refuses to write into the system python', 'pip call',

@@ -40,6 +40,9 @@ const LAZY_VIEWS = [
   ['BenchmarkView', '../models/BenchmarkView'],
   ['SettingsPage', '../settings/SettingsPage'],
   ['CreateExperimental', '../create/experimental/CreateExperimental'],
+  ['StoryStudio', '../storyboard/StoryStudio'],
+  ['VoiceStudio', '../voice/VoiceStudio'],
+  ['Connections', '../settings/ProviderConnections'],
   ['Onboarding', '../onboarding/Onboarding'],
 ] as const
 

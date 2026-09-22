@@ -865,7 +865,7 @@ export const useCreateStore = create<CreateState>()(
         set((s) => {
           if (backend !== 'local') return { backend }
           const patch: Record<string, unknown> = { backend }
-          if (s.utilityOp) Object.assign(patch, { utilityOp: null, mask: null, error: null })
+          if (s.utilityOp && isMlxImageHost()) Object.assign(patch, { utilityOp: null, mask: null, error: null })
           // music/lipsync/extend/motion (2.5.8) and character (2.6.0, local
           // musubi trainer) run locally, so a backend flip keeps them
           // selected; only the genuinely hosted-only ops (upscale/eraser)

@@ -1,7 +1,7 @@
 //! Die beiden Sprachhälften nachinstallieren: Zuhören und Sprechen.
 //!
 //! Der geteilte Zustand ist der Interpreter, in den beide gehen. faster-whisper
-//! und Piper werden in DENSELBEN Python installiert, den `resolve_lu_python`
+//! und Piper werden in DENSELBEN Python installiert, den `resolve_voice_python`
 //! liefert — in aller Regel ComfyUIs venv — und aus genau diesem Python
 //! werden sie später auch gestartet. Fällt das auseinander, ist der Import
 //! zur Laufzeit nicht da, obwohl die Installation gemeldet hat, sie sei
@@ -26,6 +26,26 @@ use crate::python::python_command;
 
 use super::pip::pip_install_streaming_with_retry_cancellable;
 use super::venv::{is_pep668_protected, resolve_lu_python};
+
+/// Drool keeps speech packages separate from ComfyUI when an isolated voice
+/// runtime has been provisioned. Probes, installers and inference must resolve
+/// the same interpreter. Existing installations retain their previous fallback.
+pub fn resolve_voice_python(state: &AppState) -> String {
+    if let Ok(path) = std::env::var("DROOL_VOICE_PYTHON") {
+        if std::path::Path::new(&path).is_file() {
+            return path;
+        }
+    }
+    #[cfg(target_os = "windows")]
+    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+        let path = std::path::PathBuf::from(local)
+            .join("Drool").join("voice-runtime").join("Scripts").join("python.exe");
+        if path.is_file() {
+            return path.to_string_lossy().into_owned();
+        }
+    }
+    resolve_lu_python(state)
+}
 
 // ── Whisper (faster-whisper) installer (§24.9 — STT install affordance) ──────
 
@@ -72,7 +92,7 @@ pub fn install_whisper(
 
     // Resolve the target Python: ComfyUI venv (if present) → system Python,
     // re-resolving a stale cache (Bug B8 — Python installed after launch).
-    let target_python = resolve_lu_python(state.inner());
+    let target_python = resolve_voice_python(state.inner());
 
     if target_python.is_empty() || !crate::python::is_real_python(&target_python) {
         let mut install = state.whisper_install.lock().unwrap();
@@ -195,7 +215,7 @@ pub fn install_tts(
 
     info!("tts install start");
 
-    let target_python = resolve_lu_python(state.inner());
+    let target_python = resolve_voice_python(state.inner());
     if target_python.is_empty() || !crate::python::is_real_python(&target_python) {
         let mut install = state.tts_install.lock().unwrap();
         install.status = "error".to_string();

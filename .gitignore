@@ -43,6 +43,7 @@ CLAUDE.md
 # Temp
 *.tmp
 scripts/*.py
+!scripts/verify-drool-voice.py
 
 # Test artifacts
 codex-api/

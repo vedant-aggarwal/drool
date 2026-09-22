@@ -257,7 +257,7 @@ pub fn open(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     }
 
     let builder = WebviewWindowBuilder::new(app, ONBOARDING, WebviewUrl::default())
-        .title("LU")
+        .title("Drool")
         .inner_size(ONBOARDING_WIDTH, ONBOARDING_HEIGHT)
         .resizable(false)
         .maximizable(false)

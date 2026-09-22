@@ -72,14 +72,15 @@ export const INTENTS: IntentMeta[] = [
     id: 'upscale', label: 'Enhance Image', short: 'Enhance', icon: Maximize2,
     placeholder: '',
     needsSource: true, needsPrompt: false, allowsMask: false, isVideo: false,
-    cloudOnly: true,
+    cloudOnly: true, hasLocalLane: true,
     examples: [],
   },
   {
     id: 'eraser', label: 'Erase Object', short: 'Erase', icon: Eraser,
     placeholder: '',
     needsSource: true, needsPrompt: false, allowsMask: true, isVideo: false,
-    cloudOnly: true,
+    requiresModels: 'image',
+    cloudOnly: true, hasLocalLane: true,
     examples: [],
   },
   {
