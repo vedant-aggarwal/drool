@@ -69,3 +69,31 @@ On this Windows PC, isolated Python 3.12 with faster-whisper 1.2.1, Piper 1.8.0 
 - The small name-spelling error is preserved here; this is a functioning speech round trip, not a claim of perfect transcription or low latency. The desktop build was under development during this test.
 
 This validates real native speech subprocesses and cached Whisper inference, not the packaged desktop UI, physical microphone, complete LLM conversation, audio.cpp GPU inference, cloning quality, or full-duplex speech. Those checks remain separate. A catalog response proves configuration discovery, not successful model loading or speech generation.
+
+## Subsequent audio.cpp validation on Windows
+
+audio.cpp v0.8.1 Windows CUDA 12.4 binaries and its companion runtime were separately
+installed, together with VoxCPM2 Q8_0 (2,955,000,480 bytes) from model revision
+`406756ee8e3b16e902ce40112986c1010775f888`. All three artifact SHA256 values matched
+the pinned release/model metadata. The GGUF hash is
+`c8e01ab4416011e12a28f24ede298a1aa5ce64b43f8e8aaad53b1e2fe7c96432`.
+
+The permanent loopback server at `http://127.0.0.1:8080` uses lazy loading, one
+resident model maximum, and idle unloading. Catalog and voice discovery passed,
+and calling its launcher again did not create another server. This does not add
+a Windows service or startup hook. The optional Drool desktop launcher starts it
+when the user opens Drool; native requests use the existing Rust HTTP proxy.
+
+A temporary CPU server was tested through Voice Studio's actual browser UI. The
+synthetic phrase "Hello. This is Drool speaking locally." produced a 353,324-byte,
+48 kHz mono WAV lasting 3.68 seconds, in 24.586 seconds including cold loading.
+The UI displayed speech ready, its save link, and a loaded audio element with
+matching duration. This proves synthesis and the adapter/player flow, not a
+listening-quality score, a latency promise, or voice-cloning quality.
+
+The browser test used a temporary loopback proxy allowing only the exact local
+preview origin and three audio API routes. The upstream v0.8.1 CORS configuration
+does not implement an exact origin list; its wildcard was not enabled. Native
+8080 runs without CORS. Temporary test services were separate from the user's
+ComfyUI process. Physical microphone conversation, Hindi synthesis, reference
+cloning, and a dedicated GPU benchmark remain unverified.

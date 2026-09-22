@@ -38,13 +38,17 @@ are recorded in [voice evidence](DROOL-VOICE.md).
 Local Enhance was also exercised through the actual browser UI and ComfyUI: an
 original 96 x 64 synthetic PNG was processed with the installed 4x-UltraSharp model,
 returned to the gallery, and its loaded output pixels verified at 2048 x 1365.
+Local Erase then completed through the UI with a painted mask and an installed
+RealVisXL SDXL checkpoint; the resulting 96 x 64 output pixels loaded in the gallery.
+These are pipeline checks on synthetic input, not a visual-quality benchmark.
 Native packaged UI relaunch was deferred by an execution approval block during
 the local upgrade; installing a matching executable is not recorded as proof that
 the running old window has switched versions.
 
 Account login and paid Codex/OpenRouter/Higgsfield generations require the owner's
 account and are not claimed as live-verified. audio.cpp/VoxCPM2 weights and runtime
-are not bundled or installed by this release. Voice is not full-duplex and physical
+are not bundled in the installer; they were separately provisioned and tested on
+the development PC as recorded in the voice evidence. Voice is not full-duplex and physical
 microphone conversation requires a separate device test. Character prompts/LoRAs
 do not guarantee consistent identity. Mac/Linux behavior was not device-tested.
 
@@ -69,3 +73,11 @@ are restricted to the upstream repository.
    the initial API form is one documented workflow, not the whole provider catalog.
 
 Keep these as follow-up work until their implementation and live checks exist.
+
+## Optional Windows launcher
+
+`scripts/start-drool-windows.ps1` opens the installed application and invokes an
+already-provisioned `%LOCALAPPDATA%\Drool\audio-runtime\Start-Audio.ps1` first when
+present. It creates no logon hook, scheduled task or service, and does not change
+PowerShell execution policy. `-Check` resolves paths without launching processes.
+The initial PC installation has a Drool desktop shortcut using this launcher.
