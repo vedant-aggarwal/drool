@@ -1,5 +1,3 @@
-import type { StoryProject, StoryPanel } from '../stores/storyboardStore'
-
 export interface CharacterReference { id: string; name: string; mime: string; size: number }
 const DB = 'drool-character-references'
 async function database(): Promise<IDBDatabase> {
@@ -42,9 +40,9 @@ export async function loadCharacterReference(id: string): Promise<Blob> {
     })
   } finally { db.close() }
 }
-export function projectReferences(project: StoryProject) {
+export function projectReferences(project: { characters: Array<{ name: string; references?: CharacterReference[] }> }) {
   const references = project.characters.flatMap(character => (character.references ?? []).map(reference => ({ ...reference, characterName: character.name })))
   return [...new Map(references.map(reference => [reference.id, reference])).values()]
 }
-export function panelReferenceSignature(panel: StoryPanel) { return `${panel.referenceId ?? ''}:${panel.referenceDenoise ?? 0.45}` }
+export function panelReferenceSignature(panel: { referenceId?: string; referenceDenoise?: number }) { return `${panel.referenceId ?? ''}:${panel.referenceDenoise ?? 0.45}` }
 export function supportsCharacterReference(modelType: string): boolean { return ['sdxl', 'sd15'].includes(modelType) }
