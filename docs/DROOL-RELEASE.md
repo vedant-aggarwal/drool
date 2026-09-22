@@ -26,10 +26,21 @@ profile simultaneously.
 
 Windows validation includes TypeScript, ESLint, frontend tests, native proxy tests,
 signed NSIS packaging, and browser inspection at desktop and narrow widths.
+The final complete frontend run passed 12,265 tests, with 56 skipped (977 passing
+test files and seven skipped files). TypeScript, ESLint and the dependency-cycle
+check passed. The optimized Windows build completed and produced the NSIS installer
+plus Tauri updater signatures; this is not an Authenticode certificate claim.
 Live Hugging Face search returned official Qwen GGUF files with quantization and
 byte sizes. Stories discovered existing ComfyUI image models. The offline native
 Piper-to-Whisper synthetic speech test passed; timings and its transcription error
 are recorded in [voice evidence](DROOL-VOICE.md).
+
+Local Enhance was also exercised through the actual browser UI and ComfyUI: an
+original 96 x 64 synthetic PNG was processed with the installed 4x-UltraSharp model,
+returned to the gallery, and its loaded output pixels verified at 2048 x 1365.
+Native packaged UI relaunch was deferred by an execution approval block during
+the local upgrade; installing a matching executable is not recorded as proof that
+the running old window has switched versions.
 
 Account login and paid Codex/OpenRouter/Higgsfield generations require the owner's
 account and are not claimed as live-verified. audio.cpp/VoxCPM2 weights and runtime
