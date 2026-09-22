@@ -211,7 +211,7 @@ describe('D-A9: die Marke in der Kopfzeile', () => {
   it('Vektorfassung statt 512px-PNG', () => {
     expect(CODE).toContain('src={MONOGRAM}')
     expect(SRC).not.toContain('LU-monogram-bw.png')
-    expect(SRC).toMatch(/import \{ MONOGRAM, MONOGRAM_INVERT \} from '\.\/brand'/)
+    expect(SRC).toMatch(/import \{ DROOL_MARK as MONOGRAM, MONOGRAM_INVERT \} from '\.\/brand'/)
   })
 
   it('20px, nicht 33 — die Groesse, die der Audit fuer diese Stelle nennt', () => {

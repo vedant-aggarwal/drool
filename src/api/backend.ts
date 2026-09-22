@@ -487,6 +487,12 @@ export async function backendCall<T = unknown>(
   // Dev mode: map command to /local-api/ endpoint
   const endpointMap: Record<string, { path: string; method?: string }> = {
     drool_codex_connect: { path: "/local-api/drool-codex-connect", method: "POST" },
+      drool_cursor_status: { path: "/local-api/drool-cursor-status", method: "POST" },
+      drool_cursor_models: { path: "/local-api/drool-cursor-models", method: "POST" },
+      drool_cursor_chat: { path: "/local-api/drool-cursor-chat", method: "POST" },
+    drool_cursor_login: { path: "/local-api/drool-cursor-login", method: "POST" },
+    drool_cursor_generate: { path: "/local-api/drool-cursor-generate", method: "POST" },
+    drool_cursor_cancel: { path: "/local-api/drool-cursor-cancel", method: "POST" },
     drool_codex_login: { path: "/local-api/drool-codex-login", method: "POST" },
     drool_codex_send: { path: "/local-api/drool-codex-send", method: "POST" },
     drool_codex_interrupt: { path: "/local-api/drool-codex-interrupt", method: "POST" },

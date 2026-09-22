@@ -134,7 +134,26 @@ pub async fn fetch_external(url: String, authToken: Option<String>) -> Result<St
 /// Binary HTTP proxy — fetch any external URL and return bytes.
 /// Used for downloading ZIP files, images, model files.
 #[tauri::command]
-pub async fn fetch_external_bytes(url: String) -> Result<Vec<u8>, String> {
+pub async fn fetch_external_bytes(url: String, max_bytes: Option<usize>) -> Result<Vec<u8>, String> {
+    // Provider previews: preserve binary bytes, pin/validate every redirect,
+    // bound memory before reading the body, and never attach stored credentials.
+    if let Some(limit) = max_bytes {
+        if limit == 0 || limit > 96_000_000 { return Err("Invalid media download limit".into()); }
+        return tokio::time::timeout(Duration::from_secs(90), async {
+            let resp = ssrf_safe_fetch(&url, "provider_media", Duration::from_secs(90), 10,
+                ExternalFetchOptions::default()).await?;
+            if !resp.status().is_success() { return Err(format!("Media download failed: HTTP {}", resp.status().as_u16())); }
+            if resp.content_length().is_some_and(|size| size > limit as u64) { return Err("Media exceeds the preview size limit".into()); }
+            use futures_util::StreamExt;
+            let mut stream = resp.bytes_stream();
+            let mut bytes = Vec::new();
+            while let Some(chunk) = stream.next().await {
+                let chunk = chunk.map_err(|_| "Media download interrupted".to_string())?;
+                append_bounded_media(&mut bytes, &chunk, limit)?;
+            }
+            Ok(bytes)
+        }).await.map_err(|_| "Media download timed out".to_string())?;
+    }
     let hub_token = if crate::commands::download::is_huggingface_host(&url) {
         crate::commands::mlx::hf_token()
     } else { None };
@@ -146,6 +165,25 @@ pub async fn fetch_external_bytes(url: String) -> Result<Vec<u8>, String> {
     }
 
     resp.bytes().await.map(|b| b.to_vec()).map_err(|e| os_error::english(&e))
+}
+
+fn append_bounded_media(bytes: &mut Vec<u8>, chunk: &[u8], limit: usize) -> Result<(), String> {
+    if chunk.len() > limit.saturating_sub(bytes.len()) { return Err("Media exceeds the preview size limit".into()); }
+    bytes.extend_from_slice(chunk);
+    Ok(())
+}
+
+#[cfg(test)]
+mod provider_media_limit_tests {
+    #[test]
+    fn binary_chunks_preserve_bytes_and_reject_overflow_before_copying() {
+        let mut bytes = Vec::new();
+        super::append_bounded_media(&mut bytes, &[0, 255, 128], 5).unwrap();
+        super::append_bounded_media(&mut bytes, &[13, 10], 5).unwrap();
+        assert_eq!(bytes, [0, 255, 128, 13, 10]);
+        assert!(super::append_bounded_media(&mut bytes, &[1], 5).is_err());
+        assert_eq!(bytes.len(), 5);
+    }
 }
 
 /// Extract the host from `ollama_base` + `comfy_host` so we can allow-list

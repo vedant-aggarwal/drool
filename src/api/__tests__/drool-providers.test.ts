@@ -54,7 +54,8 @@ describe('Codex app-server streaming', () => {
       emit('turn/completed', { threadId: 'thread', turn: { id: 'turn', status: 'completed' } })
       return { threadId: 'thread', turnId: 'turn' }
     })
-    await expect(runCodexChat('Write a story')).resolves.toEqual({ threadId: 'thread', text: 'A new story.', images: ['data:image/png;base64,aGVsbG8='] })
+    await expect(runCodexChat('Write a story', {model:'creative',effort:'high',instructions:'Be concise'})).resolves.toEqual({ threadId: 'thread', text: 'A new story.', images: ['data:image/png;base64,aGVsbG8='] })
+    expect(mocks.backendCall).toHaveBeenCalledWith('drool_codex_send', expect.objectContaining({model:'creative',effort:'high',instructions:'Be concise'}))
     expect(mocks.unlisten).toHaveBeenCalledOnce()
   })
   it('reports failed turns rather than treating the command response as completion', async () => {

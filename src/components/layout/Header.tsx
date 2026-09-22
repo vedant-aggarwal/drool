@@ -16,7 +16,7 @@ import { useModels } from '../../hooks/useModels'
 import { useModelHealthStore } from '../../stores/modelHealthStore'
 import { checkModelCapability } from '../../api/ollama'
 import { closeDialog, isTopDialog, nextFocusIndex, openDialog } from '../ui/dialog-a11y'
-import { MONOGRAM, MONOGRAM_INVERT } from './brand'
+import { DROOL_MARK as MONOGRAM, MONOGRAM_INVERT } from './brand'
 import type { View } from '../../stores/uiStore'
 import { modelListIsStale } from '../../lib/model-list-staleness'
 

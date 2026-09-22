@@ -1255,6 +1255,7 @@ export function useCreate() {
                       seed: runSeed,
                       steps, cfgScale, sampler, scheduler, width: outputWidth, height: outputHeight, batchSize,
                       createdAt: Date.now(), builderUsed, intent,
+                      comparisonSource: source && (intent === 'edit' || intent === 'eraser' || intent === 'removebg') ? { filename: source.filename, width: source.width, height: source.height } : undefined,
                     })
                   }
                 }
@@ -1345,7 +1346,8 @@ export function useCreate() {
                         modelType: mode === 'image' ? imageModelType : (videoModelsList.find(m => m.name === activeModel)?.type ?? 'wan'),
                         seed: runSeed,
                         steps, cfgScale, sampler, scheduler, width: outputWidth, height: outputHeight, batchSize,
-                        createdAt: Date.now(), builderUsed,
+                        createdAt: Date.now(), builderUsed, intent,
+                        comparisonSource: source && (intent === 'edit' || intent === 'eraser' || intent === 'removebg') ? { filename: source.filename, width: source.width, height: source.height } : undefined,
                       })
                     }
                   }

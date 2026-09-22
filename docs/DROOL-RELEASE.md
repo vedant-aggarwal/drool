@@ -1,4 +1,39 @@
-# Drool 3.1.0: verification and next work
+# Drool: verification and next work
+
+## 3.1.1 update
+
+- Connections now includes Cursor text chat and native image generation, usable
+  Higgsfield MCP model forms and job results, and a dedicated Codex image action.
+  Cursor and Codex expose the reasoning efforts advertised by their live model
+  catalogs, with saved conversation instructions and Cursor persona presets.
+- Enhance offers installed upscaler selection, explicit bicubic fallback, and
+  slider, side-by-side and result comparison modes.
+- Characters have reusable reference-image libraries and per-panel reference
+  selection. SDXL/SD1.5 img2img uses the selected original locally. This guides
+  composition; it does not guarantee identity consistency or add IP-Adapter.
+- Connections, Stories and Voice scroll within the app, including keyboard
+  navigation. The desktop icon, installer artwork and app mark use Drool's new
+  ruby-droplet identity.
+
+The full frontend suite passed 12,309 tests with 56 skipped (987 passing files,
+seven skipped). Cursor CLI 2026.09.18 completed an authenticated Ask-mode text
+request and produced a real 1024 x 576 JPEG using its native image tool. Native
+unit tests cover CLI parsing, bounds and cancellation-related request handling.
+The local Enhance UI completed a 96 x 64 to 2048 x 1365 job with an explicitly
+selected 4x-UltraSharpV2 model; slider pointer/keyboard and comparison modes were
+checked in the browser. Character-reference upload, preview, download and removal
+were exercised. Connections reached its bottom controls using wheel and End key.
+
+Paid Higgsfield generation and authenticated Codex generation have not been
+live-verified for this update. Protocol and UI fixtures cover their integration.
+Cursor chooses its image backend; Drool does not invent a selectable image model.
+Personas are request instructions and remain subject to each provider's rules.
+Cursor conversation history currently lives in the open panel; only defaults are
+persisted. See [provider details](DROOL-PROVIDERS.md),
+[Cursor chat](DROOL-CURSOR-CHAT.md), and
+[character references](DROOL-CHARACTERS.md).
+
+## 3.1.0 foundation
 
 This first Windows fork release expands the existing studio. It preserves the
 original app-data identifier, model folders and inference engines. Back up the
@@ -41,9 +76,9 @@ returned to the gallery, and its loaded output pixels verified at 2048 x 1365.
 Local Erase then completed through the UI with a painted mask and an installed
 RealVisXL SDXL checkpoint; the resulting 96 x 64 output pixels loaded in the gallery.
 These are pipeline checks on synthetic input, not a visual-quality benchmark.
-Native packaged UI relaunch was deferred by an execution approval block during
-the local upgrade; installing a matching executable is not recorded as proof that
-the running old window has switched versions.
+After the owner requested cancellation of the active render, the old process was
+stopped and the installed native application was relaunched. The new process
+reported version 3.1.0, a responsive Drool window, and an empty ComfyUI queue.
 
 Account login and paid Codex/OpenRouter/Higgsfield generations require the owner's
 account and are not claimed as live-verified. audio.cpp/VoxCPM2 weights and runtime
@@ -61,16 +96,16 @@ are restricted to the upstream repository.
 
 ## Highest-value next features
 
-1. Character reference sheets and explicit reference-image conditioning per model,
-   with reusable pose, wardrobe and voice profiles.
+1. Stronger character identity conditioning, reusable pose/wardrobe/voice profiles,
+   and reference-sheet generation beyond the current local img2img guidance.
 2. A project render queue with reproducible seeds/settings, memory scheduling,
    retries and local-versus-provider cost estimates.
 3. Storyboard contact-sheet/PDF export, shot timing, voice tracks and a timeline
    assembling approved panels into video.
 4. Full-duplex voice with echo cancellation, automatic interruption and measured
    RTX 3060 latency, after benchmarking one local speech model at a time.
-5. Per-model Higgsfield forms and shared provider result import into story panels;
-   the initial API form is one documented workflow, not the whole provider catalog.
+5. Shared provider-result import into story panels and a durable cross-provider
+   conversation archive; per-model Higgsfield MCP forms are included in 3.1.1.
 
 Keep these as follow-up work until their implementation and live checks exist.
 

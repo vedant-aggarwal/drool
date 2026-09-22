@@ -7,11 +7,12 @@ import { allowedInReadOnlyTurn } from '../../../lib/mutating-tools'
 import type { AgentRunContext } from '../../agent-context'
 
 const mocks = vi.hoisted(() => ({
-  image: vi.fn(), addToGallery: vi.fn(), cancel: vi.fn(), bytes: vi.fn(), permission: vi.fn(),
+  image: vi.fn(), addToGallery: vi.fn(), cancel: vi.fn(), bytes: vi.fn(), permission: vi.fn(), reference: vi.fn(), upload: vi.fn(),
 }))
 vi.mock('../../../stores/createStore', () => ({ useCreateStore: { getState: () => ({ imageModel: 'model.safetensors', width: 512, height: 512, steps: 20, cfgScale: 7, sampler: 'euler', scheduler: 'normal', seed: 42, negativePrompt: '', addToGallery: mocks.addToGallery }) } }))
 vi.mock('../../../stores/permissionStore', () => ({ usePermissionStore: { getState: () => ({ getEffectivePermissionForTool: mocks.permission }) } }))
-vi.mock('../../comfyui', () => ({ classifyModel: () => 'sd15', getImageUrl: (filename: string) => `http://127.0.0.1:8188/view?filename=${filename}`, fetchComfyImageBase64: mocks.bytes }))
+vi.mock('../../comfyui', () => ({ classifyModel: () => 'sd15', getImageUrl: (filename: string) => `http://127.0.0.1:8188/view?filename=${filename}`, fetchComfyImageBase64: mocks.bytes, uploadImage: mocks.upload }))
+vi.mock('../../../lib/character-references', async importOriginal => ({ ...await importOriginal<typeof import('../../../lib/character-references')>(), loadCharacterReference: mocks.reference }))
 vi.mock('../../vram-handoff', () => ({ requestGenerationCancel: mocks.cancel }))
 
 let registry: ToolRegistry
@@ -19,6 +20,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   useStoryboardStore.setState({ projects: [], activeId: null })
   mocks.permission.mockReturnValue('confirm')
+  mocks.reference.mockResolvedValue(new Blob(['bytes'], { type: 'image/png' }))
+  mocks.upload.mockResolvedValue('saved-ref.png')
   mocks.bytes.mockResolvedValue('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC')
   mocks.image.mockResolvedValue('Image generated: scene.png (prompt: "scene")\nhttp://127.0.0.1:8188/view?filename=scene.png&subfolder=stories&type=output')
   registry = new ToolRegistry()
@@ -118,5 +121,41 @@ describe('storyboard agent tools', () => {
     mocks.image.mockRejectedValueOnce(new Error('fetch failed'))
     expect(await registry.execute('storyboard_render_panel', ids)).toContain('fetch failed')
     expect(mocks.image).toHaveBeenCalledOnce()
+  })
+})
+
+
+describe('storyboard reference tools', () => {
+  async function withReference() {
+    const ids = await create()
+    useStoryboardStore.getState().updateProject(ids.projectId, { characters: [{ id: 'ari', name: 'Ari', appearance: '', personality: '', lora: '', references: [{ id: 'ref', name: 'Portrait', mime: 'image/png', size: 5 }] }] })
+    return ids
+  }
+  it('preserves reference metadata during character and caption edits and requires reference review', async () => {
+    const ids = await withReference()
+    await registry.execute('storyboard_panel', { ...ids, referenceId: 'ref', referenceDenoise: 0.35 })
+    expect(current().panels[0]).toMatchObject({ referenceId: 'ref', referenceDenoise: 0.35, approved: false })
+    await registry.execute('storyboard_character', { projectId: ids.projectId, characterId: 'ari', personality: 'Curious' })
+    expect(current().characters[0].references?.[0].id).toBe('ref')
+    await registry.execute('storyboard_approve_panel', { ...ids, approved: true })
+    await registry.execute('storyboard_panel', { ...ids, caption: 'Ari arrives.' })
+    expect(current().panels[0]).toMatchObject({ referenceId: 'ref', referenceDenoise: 0.35, approved: true })
+    await registry.execute('storyboard_panel', { ...ids, referenceDenoise: 0.5 })
+    expect(current().panels[0].approved).toBe(false)
+    expect(await registry.execute('storyboard_panel', { ...ids, referenceId: 'unknown' })).toContain('Reference not found')
+    expect(await registry.execute('storyboard_panel', { ...ids, referenceDenoise: 1 })).toContain('between 0.05 and 0.85')
+  })
+  it('passes a saved reference to the local image generation tool and never embeds the image in model context', async () => {
+    const ids = await withReference()
+    await registry.execute('storyboard_panel', { ...ids, referenceId: 'ref', referenceDenoise: 0.35 })
+    await registry.execute('storyboard_approve_panel', { ...ids, approved: true })
+    const output = JSON.parse(await registry.execute('storyboard_render_panel', ids))
+    expect(output.status).toBe('rendered')
+    expect(mocks.reference).toHaveBeenCalledWith('ref')
+    expect(mocks.upload).toHaveBeenCalledOnce()
+    expect(mocks.image.mock.calls[0][0]).toMatchObject({ inputImage: expect.stringContaining('saved-ref.png'), denoise: 0.35 })
+    const context = await registry.execute('storyboard_read', { projectId: ids.projectId })
+    expect(context).toContain('Portrait')
+    expect(context).not.toContain('data:image')
   })
 })

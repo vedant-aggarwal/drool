@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Minus, Square, Copy, X } from 'lucide-react'
 import { isMacOS } from '../../api/backend'
 import { ICON_SM } from '../ui/icon-size'
-import { MONOGRAM, MONOGRAM_INVERT } from './brand'
+import { DROOL_MARK as MONOGRAM, MONOGRAM_INVERT } from './brand'
 
 /**
  * Das Monogramm im Fensterbalken — 18px gross, und bis hierher aus einem

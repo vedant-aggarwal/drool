@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StoryStudio } from '../StoryStudio'
 import { useStoryboardStore } from '../../../stores/storyboardStore'
@@ -10,10 +10,11 @@ vi.mock('../../../stores/modelStore', () => ({
   }),
 }))
 const createState = vi.hoisted(() => ({
+    imageModelType: 'sdxl',
     imageModelList: [{ name: 'local-image::flux-story' }], imageModel: 'local-image::flux-story',
     isGenerating: false, progressText: '',
     gallery: [] as Array<{ id: string; type: string; filename: string; dataUrl: string }>, error: null,
-    setBackend: vi.fn(), setIntent: vi.fn(), setPrompt: vi.fn(), clearLoras: vi.fn(), toggleLora: vi.fn(), setLoraStrengthFor: vi.fn(),
+    setSource: vi.fn(), setMask: vi.fn(), setI2iImage: vi.fn(), setDenoise: vi.fn(), setBackend: vi.fn(), setIntent: vi.fn(), setPrompt: vi.fn(), clearLoras: vi.fn(), toggleLora: vi.fn(), setLoraStrengthFor: vi.fn(),
 }))
 vi.mock('../../../stores/createStore', () => ({
   useCreateStore: Object.assign((selector: (state: unknown) => unknown) => selector(createState), { getState: () => createState }),
@@ -22,16 +23,24 @@ const engine = vi.hoisted(() => ({ generate: vi.fn(), cancel: vi.fn(), fetchMode
 vi.mock('../../../hooks/useCreate', () => ({ useCreate: () => engine }))
 vi.mock('../../../api/backend', () => ({ isMacOS: () => false }))
 vi.mock('../../../api/providers', () => ({ getProviderForModel: vi.fn() }))
-vi.mock('../../../api/comfyui', () => ({ getLoraModels: async () => [], classifyModel: vi.fn(), getImageUrl: vi.fn() }))
+vi.mock('../../../api/comfyui', () => ({ getLoraModels: async () => [], classifyModel: () => createState.imageModelType, getImageUrl: vi.fn(), uploadImage: refs.upload }))
+const refs = vi.hoisted(() => ({ save: vi.fn(), load: vi.fn(), upload: vi.fn() }))
+vi.mock('../../../lib/character-references', async importOriginal => ({ ...await importOriginal<typeof import('../../../lib/character-references')>(), saveCharacterReference: refs.save, loadCharacterReference: refs.load }))
+vi.mock('../../../stores/workflowStore', () => ({ useWorkflowStore: { getState: () => ({ getWorkflowForModel: () => null }) } }))
 vi.mock('../../../api/drool-providers', () => ({ runCodexChat: vi.fn() }))
 
 beforeEach(() => {
   vi.clearAllMocks()
   engine.generate.mockReset()
   createState.gallery = []
+  createState.imageModelType = 'sdxl'
+  refs.load.mockResolvedValue(new Blob(['original'], { type: 'image/png' }))
+  refs.upload.mockResolvedValue('character-reference.png')
+  URL.createObjectURL = vi.fn(() => 'blob:reference')
+  URL.revokeObjectURL = vi.fn()
   engine.modelLoadError = null
   localStorage.clear()
-  useStoryboardStore.setState({ projects: [], activeId: null })
+  useStoryboardStore.setState({ projects: [], activeId: null, characterLibrary: [] })
 })
 afterEach(() => { cleanup(); localStorage.clear() })
 
@@ -106,7 +115,7 @@ describe('Story studio editing', () => {
     const saved = localStorage.getItem('drool-storyboards-v1')
     expect(saved).toBeTruthy()
     cleanup()
-    useStoryboardStore.setState({ projects: [], activeId: null })
+    useStoryboardStore.setState({ projects: [], activeId: null, characterLibrary: [] })
     localStorage.setItem('drool-storyboards-v1', saved!)
     await act(async () => { await useStoryboardStore.persist.rehydrate() })
     await act(async () => { render(<StoryStudio />) })
@@ -139,5 +148,72 @@ describe('Story studio editing', () => {
     expect(screen.getByRole('option', { name: 'qwen-story' }).getAttribute('value')).toBe('local-test::qwen-story')
     expect(screen.getByRole('option', { name: 'flux-story' }).getAttribute('value')).toBe('local-image::flux-story')
     expect(screen.queryByText('local-test::qwen-story')).toBeNull()
+  })
+})
+
+
+describe('Character references', () => {
+  const reference = { id: 'ref-1', name: 'Blue coat', mime: 'image/png', size: 8 }
+  async function addCharacter() {
+    await createPanel()
+    const store = useStoryboardStore.getState()
+    const p = store.projects[0]
+    await act(async () => store.updateProject(p.id, { characters: [{ id: 'char-1', name: 'Ari', appearance: 'Blue coat', personality: '', lora: '', references: [reference] }] }))
+  }
+  it('saves reference metadata to a reusable library, survives rehydration, and adds it to another story', async () => {
+    await addCharacter()
+    fireEvent.click(screen.getByRole('button', { name: 'Save to library' }))
+    const saved = localStorage.getItem('drool-storyboards-v1')!
+    expect(saved).toContain('Blue coat')
+    expect(saved).not.toContain('blob:reference')
+    expect(saved).not.toContain('data:image')
+    cleanup()
+    useStoryboardStore.setState({ projects: [], activeId: null, characterLibrary: [] })
+    localStorage.setItem('drool-storyboards-v1', saved)
+    await act(async () => useStoryboardStore.persist.rehydrate())
+    await act(async () => { render(<StoryStudio/>) })
+    fireEvent.click(screen.getByRole('button', { name: 'New story' }))
+    fireEvent.change(screen.getByLabelText('Saved character library'), { target: { value: 'char-1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add to story' }))
+    const second = useStoryboardStore.getState().projects[1]
+    expect(second.characters[0].references).toEqual([reference])
+    expect(second.characters[0].id).not.toBe('char-1')
+    fireEvent.click(screen.getByRole('button', { name: 'Remove reference Blue coat' }))
+    expect(useStoryboardStore.getState().projects[1].characters[0].references).toEqual([])
+    expect(useStoryboardStore.getState().projects[0].characters[0].references).toEqual([reference])
+    expect(useStoryboardStore.getState().characterLibrary[0].references).toEqual([reference])
+  })
+  it('loads the actual saved original and submits it to the local image-to-image path only after review', async () => {
+    await addCharacter()
+    fireEvent.change(screen.getByLabelText('Panel 1 character reference'), { target: { value: 'ref-1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Approve panel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Render locally' }))
+    await waitFor(() => expect(engine.generate).toHaveBeenCalledOnce())
+    expect(refs.load).toHaveBeenCalledWith('ref-1')
+    expect(refs.upload).toHaveBeenCalledOnce()
+    expect(refs.upload.mock.calls[0][0]).toBeInstanceOf(File)
+    expect(createState.setBackend).toHaveBeenCalledWith('local')
+    expect(createState.setIntent).toHaveBeenLastCalledWith('edit')
+    expect(createState.setI2iImage).toHaveBeenCalledWith('character-reference.png')
+    expect(createState.setDenoise).toHaveBeenCalledWith(0.45)
+    expect(createState.setMask).toHaveBeenCalledWith(null)
+    fireEvent.change(screen.getByLabelText('Panel 1 reference change strength'), { target: { value: '0.65' } })
+    expect(useStoryboardStore.getState().projects[0].panels[0].approved).toBe(false)
+  })
+  it('blocks unsupported models instead of silently ignoring a selected reference', async () => {
+    createState.imageModelType = 'flux'
+    await addCharacter()
+    fireEvent.change(screen.getByLabelText('Panel 1 character reference'), { target: { value: 'ref-1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Approve panel' }))
+    expect((screen.getByRole('button', { name: 'Render locally' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText(/This model does not support character references here/)).toBeTruthy()
+    expect(refs.upload).not.toHaveBeenCalled()
+  })
+  it('reports a failed original write without adding an unusable reference', async () => {
+    await addCharacter()
+    refs.save.mockRejectedValueOnce(new Error('Could not save this reference. Check free disk space.'))
+    fireEvent.change(screen.getByLabelText('Add reference images for Ari'), { target: { files: [new File(['bytes'], 'photo.png', { type: 'image/png' })] } })
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Check free disk space'))
+    expect(useStoryboardStore.getState().projects[0].characters[0].references).toHaveLength(1)
   })
 })

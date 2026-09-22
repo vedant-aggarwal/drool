@@ -1124,9 +1124,9 @@ export function AppShell() {
             {currentView === 'models' && <LazyView load={loadModelManager} fallback={<ModelManagerSkeleton />} />}
             {currentView === 'benchmark' && <LazyView load={loadBenchmarkView} fallback={<BenchmarkSkeleton />} />}
             {currentView === 'settings' && <LazyView load={loadSettingsPage} fallback={<SettingsSkeleton />} />}
-            {currentView === 'storyboard' && <LazyView load={loadStoryStudio} fallback={<CreateSkeleton />} />}
-            {currentView === 'voice' && <LazyView load={loadVoiceStudio} fallback={<SettingsSkeleton />} />}
-            {currentView === 'connections' && <LazyView load={loadConnections} fallback={<SettingsSkeleton />} />}
+            {currentView === 'storyboard' && <section aria-label="Story Studio" tabIndex={0} className="h-full min-h-0 overflow-y-auto overscroll-contain focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-blue-400"><LazyView load={loadStoryStudio} fallback={<CreateSkeleton />} /></section>}
+            {currentView === 'voice' && <section aria-label="Voice Studio" tabIndex={0} className="h-full min-h-0 overflow-y-auto overscroll-contain focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-blue-400"><LazyView load={loadVoiceStudio} fallback={<SettingsSkeleton />} /></section>}
+            {currentView === 'connections' && <section aria-label="Connections" tabIndex={0} className="h-full min-h-0 overflow-y-auto overscroll-contain focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-blue-400"><LazyView load={loadConnections} fallback={<SettingsSkeleton />} /></section>}
             {currentView === 'create' && <LazyView load={loadCreateExperimental} fallback={<CreateSkeleton />} />}
           </main>
         </div>

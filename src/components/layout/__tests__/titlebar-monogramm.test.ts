@@ -49,7 +49,7 @@ function pngSize(file: string): [number, number] {
 
 describe('der Fensterbalken zieht die Vektorfassung', () => {
   it('genau eine Quelle fuer den Pfad, und die ist `brand.ts`', () => {
-    expect(CODE).toMatch(/import \{ MONOGRAM, MONOGRAM_INVERT \} from '\.\/brand'/)
+    expect(CODE).toMatch(/import \{ DROOL_MARK as MONOGRAM, MONOGRAM_INVERT \} from '\.\/brand'/)
     // Kein eigenes Pfadliteral mehr — weder als Konstante noch im JSX.
     expect(CODE).not.toMatch(/'\/LU-monogram/)
     expect(CODE).not.toMatch(/const MONOGRAM\s*=/)

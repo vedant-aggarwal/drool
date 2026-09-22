@@ -1,7 +1,26 @@
-import { abandonPrompt, checkComfyConnection, extractComfyOutputFiles, getHistory, getUpscaleModels, submitWorkflow } from './comfyui'
-import { getAllNodeInfo } from './comfyui-nodes'
+import { abandonPrompt, checkComfyConnection, extractComfyOutputFiles, getHistory, submitWorkflow } from './comfyui'
+import { getAllNodeInfo, type NodeMetadata } from './comfyui-nodes'
+import { readComboOptions } from './comfyui-enum'
 import { useCreateStore } from '../stores/createStore'
 import type { ComfyApiGraph } from '../types/comfy-graph'
+
+export function installedEnhanceModels(nodes: Record<string, NodeMetadata>): string[] {
+  if (!nodes.ImageUpscaleWithModel) return []
+  const specification = nodes.UpscaleModelLoader?.input?.required?.model_name
+  return [...new Set((readComboOptions(specification) ?? []).filter(name => name.length > 0))]
+}
+
+export async function loadEnhanceModels(): Promise<string[]> {
+  if (!await checkComfyConnection()) throw new Error('ComfyUI is offline. Start it in Settings → AI Backends, then refresh.')
+  return installedEnhanceModels(await getAllNodeInfo(true))
+}
+
+export function resolveEnhanceModel(selection: string, installed: string[]): string | undefined {
+  if (selection === 'bicubic') return undefined
+  if (selection === 'auto') return installed[0]
+  if (!installed.includes(selection)) throw new Error(`The selected upscaler “${selection}” is no longer available. Refresh Enhance models and choose an installed model, Auto, or Bicubic resize.`)
+  return selection
+}
 
 export function enhancementGraph(filename: string, width: number, height: number, model?: string): ComfyApiGraph {
   if (!filename || !Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1 || Math.max(width, height) > 8192) throw new Error('Choose an image and a resolution up to 8K.')
@@ -29,9 +48,8 @@ export async function enhanceLocally(signal: AbortSignal): Promise<void> {
   let completed = false
   try {
     if (!await checkComfyConnection()) throw new Error('Start ComfyUI in Settings → AI Backends to enhance locally.')
-    const nodes = await getAllNodeInfo()
-    const models = await getUpscaleModels()
-    const model = nodes.UpscaleModelLoader && nodes.ImageUpscaleWithModel ? models[0] : undefined
+    const nodes = await getAllNodeInfo(true)
+    const model = resolveEnhanceModel(state.enhanceModel, installedEnhanceModels(nodes))
     const longest = { '2k': 2048, '4k': 4096, '8k': 8192 }[state.targetResolution]
     const ratio = longest / Math.max(source.width, source.height)
     const width = Math.max(1, Math.round(source.width * ratio))
@@ -39,7 +57,7 @@ export async function enhanceLocally(signal: AbortSignal): Promise<void> {
     const workflow = enhancementGraph(source.filename, width, height, model)
     for (const node of Object.values(workflow)) if (!nodes[node.class_type]) throw new Error(`ComfyUI is missing ${node.class_type}. Update its core nodes first.`)
     if (signal.aborted) return
-    state.setProgress(5, model ? `Enhancing locally with ${model}` : 'Resizing locally with bicubic (no AI upscaler installed)')
+    state.setProgress(5, model ? `Enhancing locally with ${model}` : 'Resizing locally with bicubic (no AI detail enhancement)')
     promptId = await submitWorkflow(workflow)
     state.setCurrentPromptId(promptId)
     const deadline = Date.now() + 20 * 60_000
@@ -53,6 +71,7 @@ export async function enhanceLocally(signal: AbortSignal): Promise<void> {
           id: crypto.randomUUID(), type: 'image', filename: file.filename, subfolder: file.subfolder ?? '', comfyType: file.type,
           prompt: model ? `Local enhancement: ${model}` : 'Local bicubic resize', negativePrompt: '', model: model ?? 'Bicubic resize', modelType: 'unknown',
           seed: 0, steps: 0, cfgScale: 0, sampler: '', scheduler: '', width, height, batchSize: 1, createdAt: Date.now(), intent: 'upscale',
+          comparisonSource: { filename: source.filename, width: source.width, height: source.height },
         })
         completed = true
         return

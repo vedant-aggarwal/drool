@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({ addServer: vi.fn() }))
 vi.mock('../../../api/backend', () => ({ isTauri: () => false, isWindows: () => true, openExternal: vi.fn() }))
 vi.mock('../../../api/drool-providers', () => ({ HIGGSFIELD_MCP_URL: 'https://mcp.higgsfield.ai/mcp' }))
 vi.mock('../MCPServerSettings', () => ({ MCPServerSettings: () => <div>MCP controls</div> }))
+vi.mock('../HiggsfieldStudio', () => ({ HiggsfieldStudio: () => <div>Higgsfield studio</div> }))
 vi.mock('../../../stores/mcpStore', () => {
   const hook = Object.assign((selector: (s: { servers: [] }) => unknown) => selector({ servers: [] }), { getState: () => ({ addServer: mocks.addServer }) })
   return { useMCPStore: hook }
@@ -28,6 +29,7 @@ describe('Connections setup', () => {
     render(<ProviderConnections />)
     fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'test-secret' } })
     fireEvent.change(screen.getByLabelText('Key ID:key secret'), { target: { value: 'test:secret' } })
-    expect(localStorage.length).toBe(0)
+    expect(JSON.stringify(localStorage)).not.toContain('test-secret')
+    expect(JSON.stringify(localStorage)).not.toContain('test:secret')
   })
 })

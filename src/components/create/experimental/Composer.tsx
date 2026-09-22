@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, X, SlidersHorizontal, Square, Workflow } from 'lucide-react'
 import { useCreateStore, MODEL_TYPE_DEFAULTS } from '../../../stores/createStore'
 import { classifyModel } from '../../../api/comfyui'
+import { EnhanceModelPicker } from './EnhanceModelPicker'
 import { useCreateExp } from './CreateContext'
 import { intentToJob } from '../../../lib/render/cloud-jobs'
 import { meterState } from '../../../lib/render/credits-meter'
@@ -281,6 +282,7 @@ export function Composer({ onOpenAdvanced, onOpenWorkflows }: Props) {
         {!isUtility && <LaneControls />}
 
         <div className="rounded-[var(--radius-panel)] bg-white/[0.03] border border-white/[0.06] focus-within:border-white/15 transition-colors">
+          {meta.id === 'upscale' && backend === 'local' && <EnhanceModelPicker />}
           {needPrompt && (
             <div className="px-3.5 pt-3">
               <PromptField
@@ -391,7 +393,6 @@ export function Composer({ onOpenAdvanced, onOpenWorkflows }: Props) {
             {studioPick && studioPrice?.error && (
               <span className="t-control text-red-300">{studioPrice.error}</span>
             )}
-            {meta.id === 'upscale' && backend === 'local' && <span className="text-xs text-gray-400 max-w-64">Uses an installed AI upscaler; otherwise a bicubic resize. Your image stays on this PC.</span>}
             {meta.id === 'eraser' && backend === 'local' && <span className="text-xs text-gray-400">Paint a mask and choose SDXL or SD 1.5.</span>}
             {meta.id === 'upscale' && (
               <Tooltip content="Target resolution for the upscale pass.">

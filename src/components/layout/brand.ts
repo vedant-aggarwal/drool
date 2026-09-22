@@ -79,6 +79,9 @@
 /** Die Vektorfassung des Monogramms. Liegt in `public/`, wird nie gebuendelt. */
 export const MONOGRAM = '/LU-monogram.svg'
 
+/** Drool's small-size vector mark; LU Cloud keeps its upstream service mark. */
+export const DROOL_MARK = '/drool-mark.svg'
+
 /**
  * Das Zeichen ist weiss gezeichnet (`fill="#ffffff"` im SVG). Im Dunkelmodus
  * bleibt es weiss, im Hellmodus wird es invertiert, also schwarz. Groesse und

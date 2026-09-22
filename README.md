@@ -1,15 +1,17 @@
 # Drool
 
+<img src="public/drool-icon.png" width="120" height="120" alt="Drool ruby droplet app icon" />
+
 A local-first creative AI studio for Windows. Public AGPL-3.0 fork of
 [Locally Uncensored](https://github.com/PurpleDoubleD/locally-uncensored), maintained by Vedant Aggarwal.
 
 ## What this fork adds
 
-- **Stories:** discuss ideas with an installed chat model or a connected Codex account, save character descriptions and LoRAs, draft/edit/review panels, keep captions separate, and render panels locally.
-- **Local Enhance and Erase:** ComfyUI image upscaling (installed learned upscaler, or explicitly labeled bicubic resize); masked erasing with SDXL/SD 1.5. Local Windows/Linux, not an entitlement bypass of upstream cloud services.
+- **Stories:** discuss ideas with an installed chat model or a connected Codex account, manage reusable characters and reference images, draft/edit/review panels, keep captions separate, and render panels locally. Reference conditioning currently uses SDXL/SD 1.5 image-to-image guidance, not identity locking.
+- **Local Enhance and Erase:** choose an installed ComfyUI upscaler or explicitly labeled bicubic resize; masked erasing with SDXL/SD 1.5; compare the original and result with a slider or side-by-side view. Local Windows/Linux, not an entitlement bypass of upstream cloud services.
 - **Hugging Face discovery:** category searches, suggested queries, exact quantization/file sizes, dependency-aware curated bundles, revision-pinned text downloads and optional gated access with your own token.
 - **Voice Studio:** isolated Whisper/Piper runtime, speech preview/export and hands-free turn-based conversation. Optional audio.cpp connector exposes installed voice models, presets and supported VoxCPM2 voice design/cloning.
-- **Connections:** optional Codex account login/chat/images through the official app-server, OpenRouter models/text/images, and Higgsfield API/MCP connections. Cloud services retain their own billing and limits.
+- **Connections:** Cursor native images through its official CLI, Codex account login/chat/images through the official app-server, OpenRouter models/text/images, and Higgsfield API/MCP connections. Cloud services retain their own billing and limits.
 
 Existing model folders, GGUF support, ComfyUI workflows, hardware filters, local agents, and the upstream license are retained. This first fork version keeps the original desktop data identifier to preserve existing installations. Do not run upstream and Drool simultaneously against that profile.
 

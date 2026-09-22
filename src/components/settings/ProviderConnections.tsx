@@ -9,6 +9,10 @@ import { MCPServerSettings } from './MCPServerSettings'
 import { displayModelName } from '../../api/providers/model-name'
 import { HINWEIS_TEXT } from '../../lib/hinweis'
 import { ICON_LG } from '../ui/icon-size'
+import { CursorImageConnection } from './CursorImageConnection'
+import { CursorChatConnection } from './CursorChatConnection'
+import { HiggsfieldStudio } from './HiggsfieldStudio'
+import { ProviderMediaResult } from './ProviderMediaResult'
 
 const button = 'min-h-10 rounded-lg border border-white/15 px-3 py-2 text-sm hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 disabled:cursor-not-allowed disabled:opacity-40 transition-colors'
 const input = 'w-full min-h-10 rounded-lg border border-white/15 bg-black/20 p-2 text-sm focus-visible:outline-2 focus-visible:outline-blue-400'
@@ -17,6 +21,9 @@ const card = 'space-y-4 rounded-xl border border-white/10 bg-white/[0.025] p-4 s
 export function ProviderConnections() {
   const [connection, setConnection] = useState<CodexConnection | null>(null)
   const [model, setModel] = useState('')
+  const [effort, setEffort] = useState('')
+  const [persona, setPersona] = useState(() => localStorage.getItem('drool-codex-persona') ?? '')
+  const [imageMode, setImageMode] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [thread, setThread] = useState<string>()
   const [storyTools, setStoryTools] = useState(false)
@@ -45,6 +52,7 @@ export function ProviderConnections() {
   const servers = useMCPStore(s => s.servers)
 
   useEffect(() => () => { cancel.current?.abort() }, [])
+  useEffect(() => { setEffort(localStorage.getItem(`drool-codex-effort:${model}`) ?? '') }, [model])
   useEffect(() => {
     if (!higgsJob || !higgsKey.trim()) return
     const controller = new AbortController()
@@ -97,6 +105,8 @@ export function ProviderConnections() {
       <h1 className="flex items-center gap-2 text-xl font-semibold text-balance"><Cable size={ICON_LG} /> Connections</h1>
       <p className="text-sm text-gray-400 text-pretty">Use your own accounts alongside local models. These optional providers process prompts online and use their own account limits or paid balance.</p>
     </header>
+    <CursorChatConnection />
+    <CursorImageConnection />
     {error && <div role="alert" className="rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</div>}
     {notice && <div role="status" className="rounded-lg border border-blue-400/30 bg-blue-400/10 p-3 text-sm">{notice}</div>}
 
@@ -109,6 +119,9 @@ export function ProviderConnections() {
         {connection && <button className={button} disabled={!!busy} onClick={() => void action('disconnect', async () => { await codexDisconnect(); setConnection(null); setThread(undefined) })}>Disconnect</button>}
       </div>
       {connection?.accountType && <>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Codex action"><button className={button} aria-pressed={!imageMode} disabled={!!busy} onClick={() => setImageMode(false)}>Chat</button><button className={button} aria-pressed={imageMode} disabled={!!busy} onClick={() => setImageMode(true)}>Generate an image</button></div>
+        <label className="block text-sm">Reasoning effort<select className={input} value={effort} disabled={!!busy} onChange={e => { setEffort(e.target.value); localStorage.setItem(`drool-codex-effort:${model}`, e.target.value) }}><option value="">Model default</option>{connection.models.find(m => m.model === model)?.supportedReasoningEfforts?.map(e => <option key={e.reasoningEffort} value={e.reasoningEffort}>{e.reasoningEffort} · {e.description}</option>)}</select></label>
+        <details><summary className="min-h-10 cursor-pointer py-2 text-sm">Persona and default instructions</summary><label className="block text-sm">Codex persona<textarea className={input + ' min-h-24'} value={persona} maxLength={16000} disabled={!!busy} onChange={e => { setPersona(e.target.value); localStorage.setItem('drool-codex-persona', e.target.value); setThread(undefined); setHistory([]) }} placeholder="You are my creative writing partner. Prefer concise answers and consistent characters…"/></label><p className="text-xs text-gray-400">Saved on this device. Changes start a new conversation.</p></details>
         <label className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" checked={storyTools} disabled={!!busy} onChange={e => { setStoryTools(e.target.checked); setThread(undefined); setHistory([]); setReply({ text: '', images: [] }) }} />Allow Codex to use local storyboard tools</label>
         {storyTools && <p className="text-xs text-gray-400">Story reads and changes follow Workflow permissions. Actions needing approval appear in a review card. Shell and filesystem tools remain disabled.</p>}
         <label className="block text-sm">Model<select className={`${input} mt-1`} value={model} onChange={e => { setModel(e.target.value); setThread(undefined); setHistory([]); setReply({ text: '', images: [] }) }} disabled={!!busy}>{connection.models.map(m => <option key={m.id} value={m.model}>{m.displayName}</option>)}</select></label>
@@ -116,13 +129,15 @@ export function ProviderConnections() {
         <div className="flex flex-wrap gap-2">
           <button className={button} disabled={!!busy || !prompt.trim()} onClick={() => void action('codex', async () => {
             const controller = new AbortController(); cancel.current = controller; setReply({ text: '', images: [] })
-            const result = await runCodexChat(prompt, { model, threadId: thread, signal: controller.signal, storyboardTools: storyTools, onDelta: text => setReply(r => ({ ...r, text })) })
+            const request = imageMode ? `Generate an image using your native image generation tool. Visual description: ${JSON.stringify(prompt)}. Return the generated image. If the tool is unavailable, explain that clearly; do not substitute code or SVG.` : prompt
+            const result = await runCodexChat(request, { model, effort, instructions: persona, threadId: thread, signal: controller.signal, storyboardTools: storyTools, onDelta: text => setReply(r => ({ ...r, text })) })
+            if (imageMode && !result.images.length) setNotice('Codex returned no generated image. Its response below explains any availability limitation; nothing was saved.')
             setHistory(items => [...items, { prompt, reply: result }]); setReply({ text: '', images: [] }); setThread(result.threadId); setPrompt('')
-          })}><Send size={14} className="mr-1 inline" />{busy === 'codex' ? 'Working…' : 'Send'}</button>
+          })}><Send size={14} className="mr-1 inline" />{busy === 'codex' ? 'Working…' : imageMode ? 'Generate with Codex' : 'Send'}</button>
           {busy === 'codex' && <button className={button} onClick={() => cancel.current?.abort()}><Square size={14} className="mr-1 inline" />Stop</button>}
           {thread && <button className={button} disabled={!!busy} onClick={() => { setThread(undefined); setHistory([]); setReply({ text: '', images: [] }) }}>New conversation</button>}
         </div>
-        {history.map((entry, index) => <div key={index} className="space-y-2 rounded-lg bg-black/15 p-3"><p className="whitespace-pre-wrap text-sm font-medium">{entry.prompt}</p><Reply value={entry.reply} /></div>)}
+        {history.map((entry, index) => <div key={index} className="space-y-2 rounded-lg bg-black/15 p-3"><p className="whitespace-pre-wrap text-sm font-medium">{entry.prompt}</p><Reply value={entry.reply} prompt={entry.prompt} model={model || 'Codex'} /></div>)}
         <Reply value={reply} />
       </>}
       <p className="text-xs text-gray-500">Codex uses online inference and your Codex usage allowance. Image generation depends on account and model support. Shell execution is disabled in this creative chat.</p>
@@ -144,7 +159,7 @@ export function ProviderConnections() {
 
     <section className={card} aria-labelledby="higgs-title">
       <h2 id="higgs-title" className="font-semibold">Higgsfield · MCP or API</h2>
-      <p className="text-sm text-gray-400">MCP connects your Higgsfield account through OAuth and spends plan credits. The API uses separate credentials and a separate prepaid dollar balance. Unlimited web generations do not apply to MCP.</p>
+      <p className="text-sm text-gray-400">MCP connects your Higgsfield account through OAuth. Available allowances and credits are determined by your account and model. The API uses separate credentials and a separate prepaid balance.</p>
       <button className={button} disabled={servers.some(s => s.id === 'drool-higgsfield')} onClick={addHiggsMcp}>{servers.some(s => s.id === 'drool-higgsfield') ? 'MCP connection added' : 'Add Higgsfield MCP connection'}</button>
       <details className="space-y-3"><summary className="cursor-pointer py-2 text-sm">Use your Higgsfield API account</summary>
         <p className="text-xs text-gray-400">API credential stays in memory. Choose an endpoint and parameters from the <button className="underline" onClick={() => void openExternal('https://open.higgsfield.ai/quick-start')}>official catalog</button>. This form submits text-to-video with the displayed settings.</p>
@@ -166,14 +181,15 @@ export function ProviderConnections() {
         {higgsResult?.status === 'nsfw' && <p role="alert" className={`text-sm ${HINWEIS_TEXT.ruhig}`}>Higgsfield declined this request under its content policy.</p>}
       </details>
       <MCPServerSettings />
+      <HiggsfieldStudio />
     </section>
   </div>
 }
 
-function Reply({ value }: { value: CreativeReply }) {
+function Reply({ value, prompt = '', model = 'Provider' }: { value: CreativeReply; prompt?: string; model?: string }) {
   if (!value.text && !value.images.length) return null
   return <div className="space-y-3 border-t border-white/10 pt-4">
     {value.text && <div className="whitespace-pre-wrap text-sm leading-relaxed" aria-live="polite">{value.text}</div>}
-    {value.images.map((src, i) => <div key={i} className="space-y-2"><img className="max-h-[600px] rounded-lg outline outline-white/10" src={src} alt={`Generated image ${i + 1}`} /><a className="inline-block min-h-10 py-2 text-sm text-blue-300 underline" href={src} download={`drool-image-${i + 1}.png`}>Save image {i + 1}</a></div>)}
+    {value.images.map(src => <ProviderMediaResult key={src} media={{ src, type: 'image', prompt, model }} />)}
   </div>
 }

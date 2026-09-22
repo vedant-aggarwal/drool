@@ -36,6 +36,7 @@ import { MONOGRAM } from '../../layout/brand'
 import { useReleaseNotesStore } from '../../../stores/releaseNotesStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import type { ReleaseNote } from '../../../lib/release-notes'
+import { version as currentVersion } from '../../../../package.json'
 
 const SRC = readFileSync(
   resolve(dirname(fileURLToPath(import.meta.url)), '../ReleaseNotesModal.tsx'),
@@ -235,15 +236,14 @@ describe('the wired-up sheet, end to end', () => {
 
   it('opens for the shipping version and Escape closes it, stamping the version so it does not return', async () => {
     render(<ReleaseNotesModal />)
-    // package.json pins the running version to 3.1.0, and RELEASE_NOTES
-    // carries an entry for it, so the sheet is open on mount.
+    // The shipping package and its matching entry determine the visible sheet.
     await waitFor(() => expect(screen.getByTestId('release-heading')).toBeTruthy())
-    expect(screen.getByTestId('release-heading').textContent).toBe("What's new in 3.1.0")
-    expect(useReleaseNotesStore.getState().lastNotesVersion).not.toBe('3.1.0')
+    expect(screen.getByTestId('release-heading').textContent).toBe(`What's new in ${currentVersion}`)
+    expect(useReleaseNotesStore.getState().lastNotesVersion).not.toBe(currentVersion)
 
     fireEvent.keyDown(document, { key: 'Escape' })
 
-    await waitFor(() => expect(useReleaseNotesStore.getState().lastNotesVersion).toBe('3.1.0'))
+    await waitFor(() => expect(useReleaseNotesStore.getState().lastNotesVersion).toBe(currentVersion))
     await waitFor(() => expect(screen.queryByTestId('release-heading')).toBeNull())
   })
 })

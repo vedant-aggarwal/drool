@@ -1,7 +1,7 @@
 import { backendCall, ensureProxyAllowsHost, isTauri, localFetch } from './backend'
 import { isRecord } from '../types/json-guards'
 
-export interface CodexModel { id: string; model: string; displayName: string }
+export interface CodexModel { id: string; model: string; displayName: string; supportedReasoningEfforts?: Array<{ reasoningEffort: string; description: string }>; defaultReasoningEffort?: string }
 export interface CodexConnection { accountType: string | null; planType: string | null; models: CodexModel[] }
 export interface CreativeReply { text: string; images: string[]; threadId?: string }
 export const HIGGSFIELD_MCP_URL = 'https://mcp.higgsfield.ai/mcp'
@@ -21,9 +21,11 @@ export function imageDataUrl(data: unknown, mime: unknown = 'image/png'): string
   return `data:${mime};base64,${data}`
 }
 
-export async function runCodexChat(prompt: string, options: { model?: string; threadId?: string; signal?: AbortSignal; onDelta?: (text: string) => void; storyboardTools?: boolean; storyboardProjectId?: string } = {}): Promise<CreativeReply> {
+export async function runCodexChat(prompt: string, options: { model?: string; effort?: string; instructions?: string; threadId?: string; signal?: AbortSignal; onDelta?: (text: string) => void; storyboardTools?: boolean; storyboardProjectId?: string } = {}): Promise<CreativeReply> {
   if (!isTauri()) throw new Error('Open the desktop app to use your Codex account.')
   if (options.signal?.aborted) throw new DOMException('Cancelled', 'AbortError')
+  let defaultPersona = '', defaultEffort = ''
+  try { defaultPersona = localStorage.getItem('drool-codex-persona') ?? ''; if (options.model) defaultEffort = localStorage.getItem(`drool-codex-effort:${options.model}`) ?? '' } catch { /* Storage can be unavailable; explicit options still work. */ }
   const { listen } = await import('@tauri-apps/api/event')
   let threadId = options.threadId
   let turnId: string | undefined
@@ -82,7 +84,7 @@ export async function runCodexChat(prompt: string, options: { model?: string; th
   try {
     const storyTools = options.storyboardTools ? await (await import('./codex-story-tools')).codexStoryToolDefinitions() : null
     if (options.signal?.aborted) throw new DOMException('Cancelled', 'AbortError')
-    const run = await backendCall<{ threadId: string; turnId: string }>('drool_codex_send', { prompt, model: options.model ?? null, threadId: threadId ?? null, storyTools })
+    const run = await backendCall<{ threadId: string; turnId: string }>('drool_codex_send', { prompt, model: options.model ?? null, effort: (options.effort ?? defaultEffort) || null, instructions: (options.instructions ?? defaultPersona) || null, threadId: threadId ?? null, storyTools })
     threadId = run.threadId
     turnId = run.turnId
     started = true

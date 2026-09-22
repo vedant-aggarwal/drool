@@ -144,6 +144,19 @@ const serverStarted = () => until(() => lastServer !== null, 'the server to spaw
 const wroteRequests = (n: number) => until(() => (lastServer?.written.length ?? 0) >= n, `${n} requests`)
 
 describe('connecting to an external server', () => {
+  it('preserves structured provider results and cancels a pending UI wait', async () => {
+    const client = new MCPExternalClient(config)
+    await client.connect()
+    responder = req => req.method === 'tools/call' ? JSON.stringify({jsonrpc:'2.0',id:req.id,result:{structuredContent:{results:[{id:'job-1'}]}}}) : goodServer(req)
+    expect(await client.callToolStructured('generate_image', {})).toEqual({structuredContent:{results:[{id:'job-1'}]}})
+    responder = () => null
+    const controller = new AbortController()
+    const waiting = client.callToolStructured('jobs_wait', {}, controller.signal)
+    controller.abort()
+    await expect(waiting).rejects.toThrow('Cancelled')
+    expect(lastServer?.written.some(line => line.includes('notifications/cancelled'))).toBe(true)
+    await client.disconnect()
+  })
   it('completes the handshake and returns the discovered tools', async () => {
     const client = new MCPExternalClient(config)
     const tools = await client.connect()

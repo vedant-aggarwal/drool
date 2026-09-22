@@ -3,6 +3,8 @@
 
 mod app_identity;
 mod drool_codex;
+mod drool_cursor;
+mod drool_cursor_chat;
 mod cancel_registry;
 mod commands;
 mod crash_report;
@@ -439,8 +441,16 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(app_state)
         .manage(drool_codex::DroolCodexState::default())
+        .manage(drool_cursor::DroolCursorState::default())
         .manage(commands::oauth::OauthPending::default())
         .invoke_handler(tauri::generate_handler![
+            drool_cursor::drool_cursor_status,
+            drool_cursor_chat::drool_cursor_models,
+            drool_cursor_chat::drool_cursor_chat,
+            drool_cursor::drool_cursor_login,
+            drool_cursor::drool_cursor_generate,
+            drool_cursor::drool_save_provider_image,
+            drool_cursor::drool_cursor_cancel,
             drool_codex::drool_codex_connect,
             drool_codex::drool_codex_tool_result,
             drool_codex::drool_codex_login,
@@ -851,6 +861,9 @@ fn main() {
             // server, the trainer and the MLX sidecar all running. Proved
             // live on 2026-07-28: app gone, the MLX Python still resident.
             if let tauri::RunEvent::Exit = event {
+                if let Some(cursor) = app.try_state::<drool_cursor::DroolCursorState>() {
+                    cursor.shutdown();
+                }
                 if let Some(codex) = app.try_state::<drool_codex::DroolCodexState>() {
                     tauri::async_runtime::block_on(codex.shutdown());
                 }

@@ -4,20 +4,22 @@ import { isReadOnlyShellTurn } from '../agent-context'
 import type { AgentRunContext } from '../agent-context'
 import { isRecord } from '../../types/json-guards'
 import { useStoryboardStore, panelPrompt } from '../../stores/storyboardStore'
+import { loadCharacterReference, projectReferences, panelReferenceSignature, supportsCharacterReference } from '../../lib/character-references'
+import { isMacOS } from '../backend'
 import type { StoryProject, StoryPanel, StoryCharacter } from '../../stores/storyboardStore'
 
 const str = (description: string): JSONSchemaProp => ({ type: 'string', description })
 const projectId = str('Project ID returned by storyboard_list or storyboard_create.')
 const panelId = str('Panel ID returned by storyboard_read or storyboard_panel.')
 const definitions: MCPToolDefinition[] = [
-  { name: 'storyboard_list', description: 'List local story projects and their panel/character counts.', inputSchema: { type: 'object', properties: {}, required: [], additionalProperties: false }, category: 'workflow', source: 'builtin' },
-  { name: 'storyboard_read', description: 'Read a local story, its characters, panel prompts, approval states, and output filenames. Images are not embedded.', inputSchema: { type: 'object', properties: { projectId }, required: ['projectId'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
-  { name: 'storyboard_create', description: 'Create a local story project. Returns its ID for adding characters and panels. No model inference or image generation.', inputSchema: { type: 'object', properties: { title: str('Story title, at most 200 characters.'), brief: str('Story brief.'), style: str('Visual style.'), model: str('Optional chat model identifier.') }, required: ['title'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
-  { name: 'storyboard_update', description: 'Edit project title, brief, visual style or chat model. A visual style change resets panel approval and detaches outdated panel images; originals remain in the gallery.', inputSchema: { type: 'object', properties: { projectId, title: str('Story title.'), brief: str('Story brief.'), style: str('Visual style.'), model: str('Chat model identifier.') }, required: ['projectId'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
-  { name: 'storyboard_panel', description: 'Add a panel, or edit one by panelId. New panels require title and prompt. Visual prompt changes reset approval and detach outdated images. Captions are separate from image prompts. Maximum 32 panels per story.', inputSchema: { type: 'object', properties: { projectId, panelId, title: str('Panel title.'), prompt: str('Detailed image prompt, at most 8000 characters.'), caption: str('Separate caption; may be empty.') }, required: ['projectId'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
-  { name: 'storyboard_character', description: 'Add a reusable story character or edit one by characterId. New characters require a name. Appearance and LoRA changes reset panel approvals. LoRA must be an installed filename to render.', inputSchema: { type: 'object', properties: { projectId, characterId: str('Existing character ID, or omit to add.'), name: str('Character name.'), appearance: str('Consistent visual description.'), personality: str('Personality and roleplay guidance.'), lora: str('Optional installed LoRA filename. Empty clears it.') }, required: ['projectId'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
-  { name: 'storyboard_approve_panel', description: 'Set a panel approval after reviewing its prompt with the user. Approval authorizes later local rendering of this revision, but does not generate anything.', inputSchema: { type: 'object', properties: { projectId, panelId, approved: { type: 'boolean', description: 'True to approve this revision, false to revoke.' } }, required: ['projectId', 'panelId', 'approved'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
-  { name: 'storyboard_render_panel', description: 'Render ONE approved panel through the existing local image engine, including character appearance/LoRAs, then verify the image bytes and save it to the gallery and panel. Uses current Create image settings. Requires an installed selected image model. Never calls cloud providers.', inputSchema: { type: 'object', properties: { projectId, panelId, model: str('Optional installed local image model filename; defaults to the Create selection.') }, required: ['projectId', 'panelId'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
+  { name: 'storyboard_list', description: 'List local stories with panel and character counts.', inputSchema: { type: 'object', properties: {}, required: [], additionalProperties: false }, category: 'workflow', source: 'builtin' },
+  { name: 'storyboard_read', description: 'Read story, characters, references, panels and approvals. No image bytes.', inputSchema: { type: 'object', properties: { projectId }, required: ['projectId'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
+  { name: 'storyboard_create', description: 'Create a local story; returns its ID. No inference.', inputSchema: { type: 'object', properties: { title: str('Story title, at most 200 characters.'), brief: str('Story brief.'), style: str('Visual style.'), model: str('Optional chat model identifier.') }, required: ['title'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
+  { name: 'storyboard_update', description: 'Edit a story. Style changes revoke approvals and detach images; gallery originals remain.', inputSchema: { type: 'object', properties: { projectId, title: str('Story title.'), brief: str('Story brief.'), style: str('Visual style.'), model: str('Chat model identifier.') }, required: ['projectId'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
+  { name: 'storyboard_panel', description: 'Add/edit a panel; new panels need title and prompt. Visual/reference changes revoke approval. Captions are separate. Limit 32.', inputSchema: { type: 'object', properties: { projectId, panelId, title: str('Panel title.'), prompt: str('Detailed image prompt, at most 8000 characters.'), caption: str('Separate caption; may be empty.'), referenceId: str('Saved reference ID; empty clears.'), referenceDenoise: { type: 'number', description: 'Change strength 0.05–0.85; lower preserves more.' } }, required: ['projectId'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
+  { name: 'storyboard_character', description: 'Add/edit a character; new ones need a name. Appearance/LoRA changes revoke panel approvals. Use installed LoRA filenames.', inputSchema: { type: 'object', properties: { projectId, characterId: str('Existing character ID, or omit to add.'), name: str('Character name.'), appearance: str('Consistent visual description.'), personality: str('Personality and roleplay guidance.'), lora: str('Optional installed LoRA filename. Empty clears it.') }, required: ['projectId'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
+  { name: 'storyboard_approve_panel', description: 'Approve/revoke a reviewed panel revision. Does not render.', inputSchema: { type: 'object', properties: { projectId, panelId, approved: { type: 'boolean', description: 'True to approve this revision, false to revoke.' } }, required: ['projectId', 'panelId', 'approved'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
+  { name: 'storyboard_render_panel', description: 'Render one approved panel locally with character guidance. Uses Create settings and an installed image model; verifies output before saving. Never calls cloud.', inputSchema: { type: 'object', properties: { projectId, panelId, model: str('Optional installed local image model filename; defaults to the Create selection.') }, required: ['projectId', 'panelId'], additionalProperties: false }, category: 'workflow', source: 'builtin' },
 ]
 export const STORYBOARD_TOOL_NAMES = definitions.map(d => d.name)
 const reads = new Set(['storyboard_list', 'storyboard_read'])
@@ -79,10 +81,16 @@ async function execute(name: string, args: ToolArgs, registry: ToolRegistry, run
     const existing = Object.hasOwn(args, 'panelId') ? panel(p, args) : undefined
     if (!existing && p.panels.length >= 32) throw new Error('A storyboard supports at most 32 panels.')
     const title = text(args, 'title', 200, !existing), prompt = text(args, 'prompt', 8000, !existing), caption = text(args, 'caption', 4000)
-    if (title === undefined && prompt === undefined && caption === undefined) throw new Error('Provide at least one panel field.')
+    const referenceId = text(args, 'referenceId', 200)
+    const referenceDenoise = args.referenceDenoise
+    if (referenceId && !projectReferences(p).some(r => r.id === referenceId)) throw new Error('Reference not found among this story character’s saved images.')
+    if (referenceDenoise !== undefined && (typeof referenceDenoise !== 'number' || !Number.isFinite(referenceDenoise) || referenceDenoise < 0.05 || referenceDenoise > 0.85)) throw new Error('referenceDenoise must be between 0.05 and 0.85.')
+    if (title === undefined && prompt === undefined && caption === undefined && referenceId === undefined && referenceDenoise === undefined) throw new Error('Provide at least one panel field.')
     if (prompt !== undefined && !prompt) throw new Error('Panel prompt must not be empty.')
-    const next: StoryPanel = { id: existing?.id ?? crypto.randomUUID(), title: title ?? existing?.title ?? '', prompt: prompt ?? existing?.prompt ?? '', caption: caption ?? existing?.caption ?? '', approved: existing?.approved ?? false, image: existing?.image }
-    if (existing && prompt !== undefined && prompt !== existing.prompt) { next.approved = false; next.image = undefined }
+    const next: StoryPanel = { ...existing, id: existing?.id ?? crypto.randomUUID(), title: title ?? existing?.title ?? '', prompt: prompt ?? existing?.prompt ?? '', caption: caption ?? existing?.caption ?? '', approved: existing?.approved ?? false, image: existing?.image }
+    if (referenceId !== undefined) next.referenceId = referenceId
+    if (referenceDenoise !== undefined) next.referenceDenoise = referenceDenoise as number
+    if (existing && ((prompt !== undefined && prompt !== existing.prompt) || panelReferenceSignature(next) !== panelReferenceSignature(existing))) { next.approved = false; next.image = undefined }
     store.updateProject(p.id, { panels: existing ? p.panels.map(row => row.id === existing.id ? next : row) : [...p.panels, next] })
     return panelView(next)
   }
@@ -94,7 +102,7 @@ async function execute(name: string, args: ToolArgs, registry: ToolRegistry, run
     const name = text(args, 'name', 200, !existing), appearance = text(args, 'appearance'), personality = text(args, 'personality'), lora = text(args, 'lora', 1000)
     if ([name, appearance, personality, lora].every(v => v === undefined)) throw new Error('Provide at least one character field.')
     if (name !== undefined && !name) throw new Error('Character name must not be empty.')
-    const next: StoryCharacter = { id: existing?.id ?? crypto.randomUUID(), name: name ?? existing?.name ?? '', appearance: appearance ?? existing?.appearance ?? '', personality: personality ?? existing?.personality ?? '', lora: lora ?? existing?.lora ?? '' }
+    const next: StoryCharacter = { ...existing, id: existing?.id ?? crypto.randomUUID(), name: name ?? existing?.name ?? '', appearance: appearance ?? existing?.appearance ?? '', personality: personality ?? existing?.personality ?? '', lora: lora ?? existing?.lora ?? '' }
     const visualChange = !existing || next.name !== existing.name || next.appearance !== existing.appearance || next.lora !== existing.lora
     store.updateProject(p.id, { characters: existing ? p.characters.map(c => c.id === existing.id ? next : c) : [...p.characters, next], ...(visualChange ? { panels: invalidate(p.panels) } : {}) })
     return next
@@ -116,12 +124,13 @@ async function renderPanel(registry: ToolRegistry, p: StoryProject, selected: St
   const { usePermissionStore } = await import('../../stores/permissionStore')
   if (usePermissionStore.getState().getEffectivePermissionForTool('image_generate', 'image', run?.conversationId ?? undefined) === 'blocked') throw new Error('Image generation is blocked in permissions.')
   const { useCreateStore } = await import('../../stores/createStore')
-  const { classifyModel, getImageUrl, fetchComfyImageBase64 } = await import('../comfyui')
+  const { classifyModel, getImageUrl, fetchComfyImageBase64, uploadImage } = await import('../comfyui')
   const { requestGenerationCancel } = await import('../vram-handoff')
   const create = useCreateStore.getState()
   const model = text(args, 'model', 1000) || create.imageModel
   if (!model) throw new Error('Select an installed local image model in Create first.')
   const prompt = panelPrompt(p, selected)
+  const referenceSignature = panelReferenceSignature(selected)
   const loras = p.characters.map(c => c.lora).filter(Boolean)
   const seed = create.seed >= 0 ? create.seed : crypto.getRandomValues(new Uint32Array(1))[0]
   const settings = { width: create.width, height: create.height, steps: create.steps, cfg: create.cfgScale, sampler: create.sampler, scheduler: create.scheduler, seed, ...(loras.length ? { lora: loras, loraStrength: 0.75 } : {}) }
@@ -130,12 +139,25 @@ async function renderPanel(registry: ToolRegistry, p: StoryProject, selected: St
   if (activeRenders.has(key)) throw new Error('This panel is already rendering.')
   const beforeSubmit = useStoryboardStore.getState().projects.find(row => row.id === p.id)
   const beforePanel = beforeSubmit?.panels.find(row => row.id === selected.id)
-  if (!beforeSubmit || !beforePanel?.approved || panelPrompt(beforeSubmit, beforePanel) !== prompt || JSON.stringify(beforeSubmit.characters.map(c => c.lora).filter(Boolean)) !== JSON.stringify(loras)) throw new Error('The panel changed before rendering. Review it again.')
+  if (!beforeSubmit || !beforePanel?.approved || panelPrompt(beforeSubmit, beforePanel) !== prompt || panelReferenceSignature(beforePanel) !== referenceSignature || JSON.stringify(beforeSubmit.characters.map(c => c.lora).filter(Boolean)) !== JSON.stringify(loras)) throw new Error('The panel changed before rendering. Review it again.')
   activeRenders.add(key)
   signal?.addEventListener('abort', abort, { once: true })
   try {
     if (signal?.aborted) throw new Error('Render cancelled before submission.')
-    const result = await registry.execute('image_generate', { prompt, model, negativePrompt: create.negativePrompt, settings }, 0, owner, signal)
+    let referenceInput: { inputImage: string; denoise: number } | undefined
+    if (selected.referenceId) {
+      if (isMacOS() || !supportsCharacterReference(classifyModel(model))) throw new Error('Character references require a local SDXL or SD 1.5 checkpoint.')
+      const reference = projectReferences(p).find(r => r.id === selected.referenceId)
+      if (!reference) throw new Error('The selected character reference is missing. Choose another in Story studio and approve again.')
+      const blob = await loadCharacterReference(reference.id)
+      const filename = await uploadImage(new File([blob], `character-${reference.id}.${reference.mime === 'image/jpeg' ? 'jpg' : reference.mime === 'image/webp' ? 'webp' : 'png'}`, { type: reference.mime }))
+      const latest = useStoryboardStore.getState().projects.find(row => row.id === p.id)
+      const latestPanel = latest?.panels.find(row => row.id === selected.id)
+      if (!latest || !latestPanel?.approved || panelPrompt(latest, latestPanel) !== prompt || panelReferenceSignature(latestPanel) !== referenceSignature || !projectReferences(latest).some(r => r.id === reference.id)) throw new Error('The panel changed while preparing its reference. Review again.')
+      referenceInput = { inputImage: getImageUrl(filename, '', 'input'), denoise: selected.referenceDenoise ?? 0.45 }
+    }
+    if (signal?.aborted) throw new Error('Render cancelled before submission.')
+    const result = await registry.execute('image_generate', { prompt, model, negativePrompt: create.negativePrompt, settings, ...referenceInput }, 0, owner, signal)
     if (signal?.aborted) throw new Error('Render cancelled.')
     if (!result.startsWith('Image generated: ')) throw new Error(result.slice(0, 2000) || 'Image generation produced no output.')
     const rawUrl = result.trim().split('\n').at(-1) ?? ''
@@ -154,7 +176,7 @@ async function renderPanel(registry: ToolRegistry, p: StoryProject, selected: St
     useCreateStore.getState().addToGallery(image)
     const current = useStoryboardStore.getState().projects.find(row => row.id === p.id)
     const currentPanel = current?.panels.find(row => row.id === selected.id)
-    if (!current || !currentPanel || !currentPanel.approved || panelPrompt(current, currentPanel) !== prompt || JSON.stringify(current.characters.map(c => c.lora).filter(Boolean)) !== JSON.stringify(loras)) {
+    if (!current || !currentPanel || !currentPanel.approved || panelPrompt(current, currentPanel) !== prompt || panelReferenceSignature(currentPanel) !== referenceSignature || (selected.referenceId && !projectReferences(current).some(r => r.id === selected.referenceId)) || JSON.stringify(current.characters.map(c => c.lora).filter(Boolean)) !== JSON.stringify(loras)) {
       return { status: 'saved_to_gallery_only', imageId: image.id, filename, reason: 'The panel changed while rendering. The previous revision was not attached to it.' }
     }
     useStoryboardStore.getState().updatePanel(p.id, selected.id, { image })

@@ -131,6 +131,27 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '3.1.1',
+    headline: 'Compare your edits, choose an upscaler, and bring connected creative tools into Drool.',
+    lines: [
+      { title: 'Compare the original with your edited image.', detail: 'New local Enhance, Erase and image-edit results keep their original for a draggable before/after comparison, Side by side, or Result view. The comparison divider also works with the keyboard.' },
+      { title: 'Choose the installed model for Enhance.', detail: 'Enhance now lists actual installed ComfyUI upscalers. Auto names the model it will use, and Bicubic resize is an explicit option without an AI detail pass. Refresh picks up newly installed weights; a missing selected model is reported instead of silently substituted.' },
+      { title: 'Use Cursor chat and native image generation.', detail: 'Connect the official Cursor CLI, choose available chat models and advertised reasoning effort variants, and save a persona or custom default instructions. Cursor images uses its native image-generation tool. Both run online under your Cursor account and its usage limits.' },
+      { title: 'Carry provider results and character references into your story.', detail: 'Higgsfield generation controls and provider result imports make Connections useful beyond setup. Story characters can keep reference images and use supported local reference conditioning. The new Drool icon and scrollable Connections page make the app easier to navigate.' },
+    ],
+    details: [
+      { title: 'Connected creation', items: [
+        { title: 'Keep generated media in Gallery and use it in Stories.', detail: 'Import supported Cursor, Codex and Higgsfield results into Gallery and attach them to story panels. Higgsfield API generation requires your own credentials and balance; provider availability is not a promise that every model has been tested.' },
+        { title: 'Use the model and effort your Cursor account actually exposes.', detail: 'Reasoning effort choices map to exact CLI model variants. Persona and custom instructions are saved on this PC and sent with conversation context. Cursor chat has no file, shell or image tools; image generation has its own controls.' },
+      ] },
+      { title: 'Local editing and usability', items: [
+        { title: 'Keep the correct original for each comparison.', detail: 'Changing the next input does not replace an earlier result’s original. If ComfyUI no longer has the original file, the edited result remains available with a clear notice. Older results without recorded originals remain ordinary result views.' },
+        { title: 'Reuse character references with supported local models.', detail: 'Reference images persist with a character and are available to supported local image conditioning. Compatibility remains explicit: attaching a reference does not make every model support identity conditioning.' },
+        { title: 'Recognize Drool and reach every connection control.', detail: 'The application and installer use the new Drool icon. Connections can scroll in smaller windows so its provider controls remain reachable.' },
+      ] },
+    ],
+  },
+  {
     version: '3.1.0',
     headline: 'Meet Drool: stories, local enhancement, voices and your choice of connected providers.',
     lines: [

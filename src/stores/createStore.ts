@@ -200,6 +200,9 @@ export interface GalleryItem {
   jobId?: string
   /** Which redesign intent produced this item (gallery tagging). */
   intent?: CreateIntent
+  /** Immutable local input handle for before/after comparison. No preview bytes
+   * or object URLs: the source remains readable from ComfyUI after a restart. */
+  comparisonSource?: Pick<ImageRef, 'filename' | 'width' | 'height'>
   /** Kurze Ueberschrift, wenn der Prompt nicht sagt, was dabei herauskam: der
    *  Titel des Presets, die Beschreibung des Schrittes. Siehe gallery-label.ts. */
   label?: string
@@ -295,6 +298,7 @@ interface CreateState {
   musicHowtoSeen: boolean
   /** Upscale target for the cloud super-resolution endpoint. */
   targetResolution: '2k' | '4k' | '8k'
+  enhanceModel: string
   showNegative: boolean
   selectedLoras: { name: string; strength: number }[]
   selectedVae: string
@@ -402,6 +406,7 @@ interface CreateState {
   setClipSkip: (n: number) => void
   setGrowMaskBy: (n: number) => void
   setTargetResolution: (r: '2k' | '4k' | '8k') => void
+  setEnhanceModel: (model: string) => void
   setCharacterTab: (tab: 'train' | 'use') => void
   addTrainImages: (imgs: MediaRef[]) => void
   removeTrainImage: (name: string) => void
@@ -582,6 +587,7 @@ export const useCreateStore = create<CreateState>()(
       musicLyrics: '',
       musicHowtoSeen: false,
       targetResolution: '4k' as '2k' | '4k' | '8k',
+      enhanceModel: 'auto',
       showNegative: false,
       selectedLoras: [] as { name: string; strength: number }[],
       selectedVae: 'auto',
@@ -784,6 +790,7 @@ export const useCreateStore = create<CreateState>()(
       setClipSkip: (n) => set({ clipSkip: Math.max(0, Math.min(12, Math.floor(n))) }),
       setGrowMaskBy: (n) => set({ growMaskBy: Math.max(0, Math.min(64, Math.floor(n))) }),
       setTargetResolution: (targetResolution) => set({ targetResolution }),
+      setEnhanceModel: (enhanceModel) => set({ enhanceModel }),
       setCharacterTab: (characterTab) => set({ characterTab }),
       // Cap at 30 (the server's image_paths limit) and de-dupe by filename so
       // a re-drop of the same files doesn't double the set. Both of those
@@ -1035,6 +1042,7 @@ export const useCreateStore = create<CreateState>()(
         hiresDenoise: state.hiresDenoise,
         hiresSteps: state.hiresSteps,
         hiresUpscaleMethod: state.hiresUpscaleMethod,
+        enhanceModel: state.enhanceModel,
         // Media bytes never go to localStorage — a handful of multi-MB base64
         // dataUrls would blow the origin quota (~5-10 MB in WebView2/WKWebView)
         // and every subsequent set() would throw, killing ALL create-store

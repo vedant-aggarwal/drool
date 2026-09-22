@@ -11,6 +11,7 @@ import { markGalleryItemAvailable } from './galleryUrl'
 import { galleryLabel } from '../../../lib/render/gallery-label'
 import { useComfyMedia } from './useComfyMedia'
 import { cn } from '../ui/cn'
+import { ImageComparison } from './ImageComparison'
 
 // The icon in the waiting circle says which PHASE the render is in, never
 // which device it runs on. The chip is the loading phase, the spark is
@@ -242,8 +243,8 @@ export function ResultView({ item, onFullscreen, onSendToEditor, onAnimate }: Re
   const isAudio = item.type === 'audio'
   return (
     <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin flex flex-col">
-     <div className="m-auto flex flex-col items-center p-6">
-      <div className="relative group max-w-full max-h-full">
+     <div className={cn('m-auto flex flex-col items-center p-4 sm:p-6', item.comparisonSource && !isAudio && !isVideo && 'w-full max-w-4xl')}>
+      <div className={cn('relative group max-w-full max-h-full', item.comparisonSource && !isAudio && !isVideo && 'w-full')}>
         {isAudio ? (
           <div className="w-[420px] max-w-full flex flex-col items-center gap-3 p-6 rounded-[var(--radius-panel)] border border-white/[0.06] bg-white/[0.02]">
             <AudioLines size={26} className="text-gray-400" strokeWidth={ICON_STROKE_MARK} />
@@ -261,6 +262,9 @@ export function ResultView({ item, onFullscreen, onSendToEditor, onAnimate }: Re
             onLoadedData={(e) => { markGalleryItemAvailable(item); reconcileDims(item, e.currentTarget.videoWidth, e.currentTarget.videoHeight) }}
             className="max-w-full max-h-[62vh] object-contain rounded-[var(--radius-panel)] border border-white/[0.06]"
           />
+        ) : item.comparisonSource ? (
+          <ImageComparison key={item.id} item={item} afterUrl={url} onAfterError={onError}
+            onAfterLoad={(w, h) => { markGalleryItemAvailable(item); reconcileDims(item, w, h) }} />
         ) : (
           <img
             src={url}
@@ -276,7 +280,7 @@ export function ResultView({ item, onFullscreen, onSendToEditor, onAnimate }: Re
             <span className="t-body">This render lives on the local engine, which isn't reachable right now.</span>
           </div>
         )}
-        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className={cn('flex gap-1 transition-opacity', item.comparisonSource && !isAudio && !isVideo ? 'justify-center mt-3' : 'absolute top-2 right-2 opacity-100 sm:opacity-0 group-hover:opacity-100 focus-within:opacity-100')}>
           {onSendToEditor && item.type === 'image' && !item.unavailable && (
             <IconBtn title="Edit with mask" onClick={onSendToEditor}><Wand2 size={14} /></IconBtn>
           )}
@@ -318,7 +322,7 @@ function IconBtn({ children, title, onClick, disabled }: { children: React.React
       title={title}
       disabled={disabled}
       className={cn(
-        'w-7 h-7 flex items-center justify-center rounded-lg bg-black/50 backdrop-blur transition-colors',
+        'w-10 h-10 flex items-center justify-center rounded-lg bg-black/50 backdrop-blur transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-lu-accent',
         disabled ? 'text-gray-600 cursor-not-allowed' : 'text-gray-200 hover:text-white hover:bg-black/70',
       )}
     >

@@ -132,6 +132,13 @@ export function liveExternalServerCount(): number {
   return liveClients.size
 }
 
+/** UI-initiated provider actions need native image blocks and structured jobs. */
+export async function callConnectedMcpTool(serverId: string, name: string, args: ToolArgs, signal?: AbortSignal): Promise<unknown> {
+  const client = [...liveClients].find(item => item.serverId === serverId && item.isConnected())
+  if (!client) throw new Error('Connect this provider first. Its MCP process is not connected.')
+  return client.callToolStructured(name, args, signal)
+}
+
 /**
  * Disconnect every connected external MCP server. The ONE cleanup path —
  * `api/mcp/shutdown.ts` decides when it runs, this decides what it does.
@@ -333,6 +340,13 @@ export class MCPExternalClient {
     return JSON.stringify(result)
   }
 
+  get serverId(): string { return this.config.id }
+
+  async callToolStructured(name: string, args: ToolArgs, signal?: AbortSignal): Promise<unknown> {
+    if (!this.connected) throw new Error('Not connected')
+    return this.sendRequest('tools/call', { name, arguments: args }, 300_000, signal)
+  }
+
   async disconnect() {
     this.closingOnPurpose = true
     this.connected = false
@@ -427,8 +441,9 @@ export class MCPExternalClient {
 
   // ── Private ─────────────────────────────────────────────────
 
-  private sendRequest(method: string, params?: unknown): Promise<unknown> {
+  private sendRequest(method: string, params?: unknown, timeoutMs = 30000, signal?: AbortSignal): Promise<unknown> {
     return new Promise((resolve, reject) => {
+      if (signal?.aborted) { reject(new DOMException('Cancelled', 'AbortError')); return }
       if (!this.child) {
         reject(new Error('Not connected'))
         return
@@ -443,11 +458,25 @@ export class MCPExternalClient {
 
       const timer = setTimeout(() => {
         if (this.pendingRequests.delete(id)) {
+          signal?.removeEventListener('abort', abort)
           reject(new Error(`Request ${method} timed out`))
         }
-      }, 30000)
+      }, timeoutMs)
 
-      this.pendingRequests.set(id, { resolve, reject, timer })
+      const abort = () => {
+        if (!this.pendingRequests.delete(id)) return
+        clearTimeout(timer)
+        signal?.removeEventListener('abort', abort)
+        reject(new DOMException('Cancelled', 'AbortError'))
+        // Cancels this wait; a provider may already have submitted billable work.
+        void this.child?.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: id, reason: 'User stopped waiting' } }) + '\n').catch(() => undefined)
+      }
+      signal?.addEventListener('abort', abort, { once: true })
+
+      this.pendingRequests.set(id, {
+        resolve: value => { signal?.removeEventListener('abort', abort); resolve(value) },
+        reject: error => { signal?.removeEventListener('abort', abort); reject(error) }, timer,
+      })
 
       // Child.write is async: a failed write has to fail the request instead
       // of becoming an unhandled rejection and letting it sit for 30 s.
@@ -455,6 +484,7 @@ export class MCPExternalClient {
       Promise.resolve(this.child.write(msg)).catch((err: unknown) => {
         if (this.pendingRequests.delete(id)) {
           clearTimeout(timer)
+          signal?.removeEventListener('abort', abort)
           reject(err instanceof Error ? err : new Error(String(err)))
         }
       })

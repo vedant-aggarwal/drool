@@ -57,7 +57,7 @@ describe('the notes table', () => {
     }
   })
 
-  it('every 3.0.1 line has a title, and no title is a text wall', () => {
+  it('every shipping-version line has a title, and no title is a text wall', () => {
     // Runde 2 (19.09.2026): the sheet used to show 35 developer paragraphs
     // with nothing to skim. Every line of the SHIPPING version now has to
     // carry a short `title`, or the redesign quietly regresses to walls of
@@ -275,17 +275,15 @@ describe('the notes table', () => {
     expect(prose).toContain('photograph of a real, identifiable person without their consent')
   })
 
-  it('the 3.0.1 entry names its own fixes, now that it is the shipping version', () => {
+  it('the historical 3.0.1 entry retains its own fixes', () => {
     // Auflage 2 (review-gesamt.md): package.json, Cargo.toml/.lock and
     // tauri.conf.json all moved to 3.0.1 in one commit, so THIS is now the
     // shipping entry the earlier existence guard checks. Same blind spot as
     // 2.6.8/2.6.9/3.0.0 above: an anchor per fix, so a later edit that drops
     // one fails here instead of shipping quietly incomplete.
-    const shipping = JSON.parse(
-      readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../package.json'), 'utf8'),
-    ).version as string
+    const shipping = '3.0.1'
     expect(releaseNoteFor(shipping)).toBeDefined()
-    const prose = proseOf('3.0.1')
+    const prose = proseOf(shipping)
     for (const anchor of [
       'avx2', 'total capacity, not free memory', 'ld_library_path',
       'pythonhome', 'refuses to write into the system python', 'pip call',
@@ -305,6 +303,16 @@ describe('the notes table', () => {
     ]) {
       expect(prose, `${shipping}: nothing about "${anchor}"`).toContain(anchor)
     }
+  })
+
+  it('the 3.1.1 entry names connected creation and local comparison without implying local provider inference', () => {
+    const prose = proseOf('3.1.1')
+    for (const feature of ['before/after', 'side by side', 'keyboard', 'installed comfyui upscalers', 'bicubic', 'cursor chat', 'reasoning effort', 'persona', 'higgsfield', 'gallery', 'reference images', 'drool icon', 'scroll']) {
+      expect(prose, `3.1.1 omits ${feature}`).toContain(feature)
+    }
+    expect(prose).toContain('run online')
+    expect(prose).toContain('own credentials and balance')
+    expect(prose).toContain('older results without recorded originals')
   })
 
   it('the Flash allowance on the sheet hangs on a RUNNING plan, not on money that once arrived', () => {

@@ -554,6 +554,17 @@ describe('createStore', () => {
   // ── persistence: media bytes never hit localStorage ────────
 
   describe('partialize', () => {
+    it('restores the chosen Enhance model and per-result comparison original without preview bytes', () => {
+      useCreateStore.getState().setEnhanceModel('4x-UltraSharpV2.safetensors')
+      const comparisonSource = { filename: 'captured-original.png', width: 96, height: 64 }
+      useCreateStore.getState().addToGallery({ ...makeGalleryItem('comparison'), comparisonSource, dataUrl: 'data:image/png;base64,AAAA' })
+      const { partialize, merge } = useCreateStore.persist.getOptions()
+      const persisted = partialize!(useCreateStore.getState())
+      const restored = merge!(persisted, { ...useCreateStore.getState(), enhanceModel: 'auto', gallery: [] })
+      expect(restored.enhanceModel).toBe('4x-UltraSharpV2.safetensors')
+      expect(restored.gallery[0].comparisonSource).toEqual(comparisonSource)
+      expect(restored.gallery[0].dataUrl).toBeUndefined()
+    })
     it('strips dataUrl from persisted gallery items, keeps remoteUrl + jobId', () => {
       useCreateStore.getState().addToGallery({
         ...makeGalleryItem('a'),
