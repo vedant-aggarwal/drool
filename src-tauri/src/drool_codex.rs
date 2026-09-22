@@ -377,9 +377,6 @@ pub async fn drool_codex_send(
         }
     }
     let persona = instructions.unwrap_or_default();
-    if persona.len() > 16_000 {
-        return Err("Persona instructions must be under 16,000 characters".into());
-    }
     let thread = match thread_id {
         Some(id) if peer.threads.lock().await.contains(&id) => id,
         Some(_) => return Err("This conversation expired. Start a new conversation.".into()),

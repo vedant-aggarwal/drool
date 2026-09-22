@@ -1,5 +1,11 @@
 # Drool: verification and next work
 
+## 3.1.2 update
+
+Removed Drool's 16,000-character Codex persona field cap and native backend
+rejection. Saved instructions are retained and passed to Codex without truncation.
+The selected provider/model still determines its own context capacity.
+
 ## 3.1.1 update
 
 - Connections now includes Cursor text chat and native image generation, usable

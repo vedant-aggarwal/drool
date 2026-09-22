@@ -131,6 +131,14 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '3.1.2',
+    headline: 'Use longer Codex persona instructions.',
+    lines: [
+      { title: 'No Drool character cap on Codex personas.', detail: 'Removed the previous field limit and the backend rejection. Your instructions are passed to Codex in full.' },
+      { title: 'Keep your saved instructions.', detail: 'Existing personas remain saved on this PC. Codex model context limits still apply.' },
+    ],
+  },
+  {
     version: '3.1.1',
     headline: 'Compare your edits, choose an upscaler, and bring connected creative tools into Drool.',
     lines: [
